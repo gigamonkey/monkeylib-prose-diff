@@ -1,0 +1,18 @@
+A test document. This is a paragraph that should appear in both versions.
+
+Will be edited a little bit in the edited version.
+
+This is a long paragraph that will be split into to two parts in the
+edited version.
+
+As it stands now it just goes on and on and on.
+
+This is a short paragraph that will be joined with the next paragraph.
+This paragraph will be joined with the previous one.
+
+The text of this paragraph is completely new. It doesn't appear in any
+form in the original document.
+
+I like dogs a lot. Puppies are neat too. I also like cats. Kittens are
+fuzzy furballs.
+

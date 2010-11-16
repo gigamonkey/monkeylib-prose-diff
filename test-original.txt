@@ -1,0 +1,17 @@
+A test document. This is a paragraph that should appear in both versions.
+
+Will be slightly edited in the edited version.
+
+This is a long paragraph that will be split into to two parts in the
+edited version. As it stands now it just goes on and on and on.
+
+This is a short paragraph that will be joined with the next paragraph.
+
+This paragraph will be joined with the previous one.
+
+Deletion is the fate of this block of text.
+
+I like dogs a lot. I also like cats.
+
+Puppies are neat too. Kittens are fuzzy furballs.
+

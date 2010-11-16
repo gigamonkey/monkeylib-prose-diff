@@ -9,7 +9,8 @@
 	:cl-ppcre
 	:com.gigamonkeys.pathnames
 	:com.gigamonkeys.utilities
-	:com.gigamonkeys.macro-utilities)
+	:com.gigamonkeys.macro-utilities
+        :com.gigamonkeys.markup3)
   (:export
    :show-cuts))
 

@@ -1,0 +1,164 @@
+-*- mode: markup; -*-
+
+* Prose diff algorithm:
+
+Hash (or intern) the paragraphs of the two documents and compute the
+diff using LCS of the sequence of hashes. This will find a backbone of
+unchanged paragraphs in their original order as well as the places
+where paragraphs were "deleted" and "added". However there are a few
+more possibilities.
+
+  # A paragraph may actually have been cut. This will show up as a
+    deletion with none of the new paragraphs being at all similar to
+    the deleted paragraph. (Cut)
+
+  # A paragraph may actually have been added. This will show up as an
+    addition with the new paragraph not similar to any of the deleted
+    paragraphs. (Addition)
+
+  # A paragraph may have been moved which will show up as a deletion
+    in one place and an addition somewhere else of the same hash.
+    (Moved)
+
+  # A paragraph may have been edited in place which will show up as a
+    deletion and addition in the same position with a lot of
+    similarity between the deleted and added paragraphs. (Edited)
+
+  # A paragraph may have been moved and edited which will show up as a
+    deletion at the original position and an addition somewhere else
+    with a lot of similarity between the deleted and added paragraphs.
+    (Moved and edited)
+
+  # A paragraph may have been split, perhaps with edits to both the
+    new paragraphs. This will show up as a deletion and an addition of
+    two (or more) paragraphs at the same position with each of the new
+    paragraphs having a LCS with the old paragraph that is almost the
+    full length of the new paragraph.
+
+  # N paragraphs may have been joined which will look like N deletions
+    and one addition where each of the deleted paragraphs will have an
+    LCS with the new paragraph that is almost the full length of the
+    deleted paragraph.
+
+  # A chunk of a paragraph may have been removed and added into
+    another paragraph. This will look like edits to both paragraphs
+    and the LCS of the deleted bits of the first paragraph with the
+    added bits of the second paragraph will be almost the whole
+    length. (Sentences moved)
+     
+To determine what has happened:
+
+  # Find exactly moved paragraphs and remove them from further
+    consideration. (Another way to implement this is to simply find
+    all the paragraphs that occur in both the old and new document.)
+
+  # Build a matrix of the LCSs of each remaining paragraph against
+    every other.
+
+
+
+
+* Output
+
+A set of paragraphs. Some paragraphs occur in both the original and
+edited document and we record their position in each document.
+
+Some paragraphs exist only in the original and some only in the
+edited. There is a mapping between the original-only and edited-only
+paragraphs the defines how they are releated.
+
+ - Original to nothing: a deleted paragraph
+
+ - nothing to Edited: a completely new paragraph
+
+ - One original to one edited: an edited paragraph
+
+ - One original to multiple edited: a split (and possibly edited) paragraph.
+
+ - Multiple original to one edited: a joined (and possibly edited) parargraphs.
+
+ - Two originals to two edited: chunk removed from original and moved
+   to another paragraph. I.e. basically an edit of one paragraph to
+   remove a chunk of text and then an edit of another paragraph to add
+   a very similar chunk of text.
+
+
+
+A set of paragraphs, each with a position (possibly Nil) in the
+original document, a position (possibly (Nil) in the new document, and 
+
+
+* Unmoved paragraphs
+
+After we determine the simply equivalent paragraphs between original
+and edited (identical paragraphs and symmetrically similar\note{Though
+need to think about splits and joins}) we can find a sort of
+abstracted LCS at the paragraph level. E.g. If we have a trivial case
+of:
+
+   A B C D E -> A' B' C' D' E'
+
+where X' is equivalent to X, then the paragraph-level LCS is the whole
+document. In general the unmoved paragraphs are the ones that are part
+of the LCS.
+
+We can then run through the rest of the paragraphs in edited and try
+to figure out where they come from. 
+
+Moved paragraphs will be ones that have versions in both original and
+edited but which are not part of the LCS.
+
+Extra paragraphs resulting from splits will have high one-way
+similarity with the original version of a preceding or following
+paragraph
+
+Paragraphs resulting from joins will have high one-way similarity with multiple 
+
+Totally new paragraphs will have low similarity to any paragraphs.
+
+
+Truly deleted paragraphs
+will be ones with no version 
+
+
+
+
+Simple case: A single paragraph is in the “same” location if its
+edited version follow an edited version of the paragraph the preceded
+it in the original or precedes an edited version of the paragraph that
+followed it in the original.
+
+Slightly more complicated: if the preceding or following paragraphs in
+edited are the result of a split, they should be considered descended
+from the original paragraph. Thus if we have:
+
+   AB C DE -> A' B' C' D' E'
+
+Then paragraphs B and D are descendants of AB and DE, thus C' is in
+the same position.
+
+If the preceding or following paragraphs resulted from a join we have:
+
+   A B C D E -> AB' C DE'
+
+Since AB' descends from both A and B and DE' descends from both D and
+E, C is similarly unmoved.
+
+An unmoved paragraph may have 
+
+
+
+* Deleted paragraphs
+
+For paragraphs deleted from the original, find the paragraph
+preceeding it in the original and determine what happened to it in the
+editied. If it exists (perhaps in modified form) in the edited, put
+the deleted paragraph, marked as deleted, after it. If it was also
+deleted, find its preceeding paragraph, and so on, until a paragraph
+that lives on in the edited verion is found. (Screw case #1: if the
+preceeding paragraph was moved far away it would probably make more
+sense to leave the deleted paragraphs where they were. Not sure how to
+determine when a paragraph was moved. Screw case #2: if the preceeding
+paragraph was joined with the paragraph following the deleted
+paragraph(s). Probably should put the deleted paragraphs after the
+joined paragraph.
