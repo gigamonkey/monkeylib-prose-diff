@@ -84,7 +84,8 @@
   (diff-vectors (linearize-markup a t) (linearize-markup b t)))
 
 (defun diff-textified-markup (a b)
-  (diff-textified-vectors (textify-markup a t) (textify-markup b t)))
+  (clean-diff-vector
+   (diff-textified-vectors (textify-markup a t) (textify-markup b t))))
 
 (defun diff-textified-vectors (old new)
 
@@ -114,6 +115,13 @@
           (1+ i)))))
     (t i)))
 
+(defun clean-diff-vector (v)
+  (remove-if #'diff-junk v))
+
+(defun diff-junk (text)
+  "Empty text elements that are being deleted will just mess up the
+detextification algorithm."
+  (and (string= (text text) "") (eql (first (properties text)) :del)))
 
 (defun foo-test ()
   (list
@@ -129,6 +137,19 @@
      '(:p "foo " (:i "quux bar biff") " baz")
      '(:p "foo " (:i "quux baz boom") " baz"))))))
 
+(defun full-file-diff (old new)
+  (remove-empties
+   (rewrite-adds-and-deletes
+    (detextify-markup
+     (diff-textified-markup (parse-file old) (parse-file new))))))
+
+(defun remove-empties (tree)
+  (labels ((helper (x)
+             (cond
+               ((and (consp x) (null (rest x))) nil)
+               ((consp x) (list (mapcan #'helper x)))
+               (t (list x)))))
+    (first (helper tree))))
 
 (defun rewrite-adds-and-deletes (tree)
   (cond
