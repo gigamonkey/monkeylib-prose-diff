@@ -1,6 +1,6 @@
 (in-package :com.gigamonkeys.prose-diff)
 
-(defparameter *interned-text* (make-hash-table :test #'equalp))
+(defparameter *interned-text* (make-hash-table :test #'equal))
 
 (defclass propertied-text ()
   ((text :initarg :text :accessor text)
