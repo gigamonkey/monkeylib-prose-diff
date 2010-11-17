@@ -36,8 +36,17 @@
 
 (defmethod %textify-markup ((markup cons) properties all-text)
   (destructuring-bind (tag &rest body) markup
-    (let ((props (cons tag properties)))
-      (mapcan (lambda (x) (%textify-markup x props all-text)) body))))
+    (let ((props (cons tag properties))
+          (results ()))
+      (loop for element in body do 
+           (loop for x in (%textify-markup element props all-text) do (push x results)))
+      ;;; This next line is a bit of a kludge to keep adjacent
+      ;;; elements with the same tag from merging. Potentially it
+      ;;; could be construed as a feature if certain elements would
+      ;;; merge (i.e. if you have (:i "foo") (:i "bar") that should
+      ;;; perhaps turn into (:i "foobar")
+      (push (intern-text "" properties) results)
+      (nreverse results))))
 
 (defmethod %textify-markup ((markup string) properties all-text)
   (mapcar (lambda (tok) (intern-text tok properties)) (tokenize-text markup all-text)))
