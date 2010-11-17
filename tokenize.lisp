@@ -7,11 +7,24 @@
 (defparameter *just-word-scanner* (cl-ppcre:create-scanner "(\\w+)"))
 (defparameter *everything-scanner* (cl-ppcre:create-scanner "(\\w+|\\s+|[\\W\\S])"))
 
-(defun linearize-markup (markup include-whitespace)
+(defun linearize-markup (markup all-text)
   "Convert a Markup sexp into a vector of symbols with paired open and
   close markers surrounding tagged sections and symbols for each chunk
-  of text."
-  (coerce (linearize-markup/list markup include-whitespace) 'vector))
+  of text. (With 'chunk' defined by tokenize-text)"
+  (coerce (linearize-markup/list markup all-text) 'vector))
+
+(defun delinearize-markup (v)
+  "Convert a vector containing linearized markup back into a Markup sexp."
+  (first (%delinearize-markup v 0 (length v))))
+
+(defun tokenize-text (text all-text)
+  "Split a text string into a list of tokens containing either all the
+text split into words, whitespace, and punctuation or just the words."
+  (cl-ppcre:all-matches-as-strings 
+   (if all-text *everything-scanner* *just-word-scanner*)
+   text))
+
+
 
 (defun linearize-markup/list (markup all-text)
   (cond
@@ -24,18 +37,7 @@
      (mapcar (lambda (x) (intern x :keyword)) (tokenize-text markup all-text)))
     (t (list markup))))
 
-#+(or)(defun tokenize-text (text include-whitespace)
-  (if include-whitespace
-      (cl-ppcre:split "(\\s+)" text :with-registers-p t)
-      (cl-ppcre:split "\\s+" text)))
 
-(defun tokenize-text (text all-text)
-  (cl-ppcre:all-matches-as-strings 
-   (if all-text *everything-scanner* *just-word-scanner*)
-   text))
-
-(defun delinearize-markup (v)
-  (first (%delinearize-markup v 0 (length v))))
 
 (defun %delinearize-markup (v start end)
   (let ((result ()))

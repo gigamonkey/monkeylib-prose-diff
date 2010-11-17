@@ -79,3 +79,110 @@
          (t
           (1+ i)))))
     (t i)))
+
+(defun diff-linearized-markup (a b)
+  (diff-vectors (linearize-markup a t) (linearize-markup b t)))
+
+(defun diff-textified-markup (a b)
+  (diff-textified-vectors (textify-markup a t) (textify-markup b t)))
+
+(defun diff-textified-vectors (old new)
+
+  (loop with output = (make-array (length new) :adjustable t :fill-pointer 0)
+     with old-i = 0
+     with old-length = (length old)
+     with new-i = 0
+     with new-length = (length new)
+     for next-lcs across (lcs old new) 
+     do
+       (setf old-i (emit-textified-diffs next-lcs old old-i old-length :del output))
+       (setf new-i (emit-textified-diffs next-lcs new new-i new-length :add output))
+       (vector-push-extend next-lcs output)
+
+     finally (return output)))
+
+(defun emit-textified-diffs (next-lcs v i max-i marker-name output)
+  (cond
+    ((< i max-i) 
+     (let ((idx (or (position next-lcs v :start i) max-i)))
+       (cond
+         ((> idx i)
+          (loop for j from i below idx do
+               (vector-push-extend (add-property (aref v j) marker-name) output))
+          (1+ idx))
+         (t
+          (1+ i)))))
+    (t i)))
+
+
+(defun foo-test ()
+  (list
+   (rewrite-adds-and-deletes
+    (detextify-markup
+     (diff-textified-markup
+      '(:p "foo " (:i "quux") " baz")
+      '(:p "foo " (:b "quux") " baz"))))
+
+  (rewrite-adds-and-deletes
+   (detextify-markup
+    (diff-textified-markup
+     '(:p "foo " (:i "quux bar biff") " baz")
+     '(:p "foo " (:i "quux baz boom") " baz"))))))
+
+
+(defun rewrite-adds-and-deletes (tree)
+  (cond
+    ((consp tree)
+     (let ((add-or-delete (has-nested-add-or-delete-p tree)))
+       (when add-or-delete
+         (setf tree (promote-tag add-or-delete tree)))
+       (mapcar #'rewrite-adds-and-deletes tree)))
+    (t tree)))
+
+(defun has-nested-add-or-delete-p (tree)
+  "Tree has a nested :add or :del tag and it's not the only tag.
+Returns which one it is since there should only be one or the other."
+  (let ((tags (nested-tags tree)))
+    (and (not (null (cdr tags)))
+         (or (find :add tags) (find :del tags)))))
+
+(defun promote-tag (tag tree)
+  (list tag (remove-tag tag tree)))
+
+(defun remove-tag (tag tree)
+  (cond 
+    ((consp tree)
+     (cond 
+       ((consp (second tree))
+        (destructuring-bind (t1 (t2 . rest)) tree
+          (cond
+            ((eql t1 tag) `(,t2 ,@rest))
+            ((eql t2 tag) `(,t1 ,@rest))
+            (t `(,t1 ,(remove-tag tag `(,t2 ,@rest)))))))
+       (t (destructuring-bind (t1 . rest) tree
+            (cond
+              ((eql t1 tag) rest)
+              (t `(,t1 ,@rest)))))))
+    (t tree)))
+
+
+
+(defun remove-tag-test ()
+  (and 
+   (equalp
+    (remove-tag :add '(:i (:b (:add "foo" (:x "abc")))))
+    '(:i (:b "foo" (:x "abc"))))
+
+   (equalp
+    (remove-tag :b '(:i (:b (:add "foo" (:x "abc")))))
+    '(:i (:add "foo" (:x "abc"))))
+
+   (equalp
+    (remove-tag :i '(:i (:b (:add "foo" (:x "abc")))))
+    '(:b (:add "foo" (:x "abc"))))))
+
+(defun nested-tags (tree)
+  (if (consp tree)
+      (if (null (cddr tree))
+          (cons (car tree) (nested-tags (second tree)))
+          (list (car tree)))))
