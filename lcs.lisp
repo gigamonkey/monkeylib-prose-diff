@@ -74,7 +74,7 @@ average of the ratios of the length of the LCS to their length."
      with old-length = (length old)
      with new-i = 0
      with new-length = (length new)
-     for next-lcs across (lcs old new) 
+     for next-lcs across (collapse-spaces-in-lcs (lcs old new))
      do
        (setf old-i (emit-textified-diffs next-lcs old old-i old-length :del output))
        (setf new-i (emit-textified-diffs next-lcs new new-i new-length :add output))
@@ -84,6 +84,21 @@ average of the ratios of the length of the LCS to their length."
        (setf old-i (emit-textified-diffs (cons nil nil) old old-i old-length :del output))
        (setf new-i (emit-textified-diffs (cons nil nil) new new-i new-length :add output))
        (return output)))
+
+(defun collapse-spaces-in-lcs (lcs)
+  ;; Since spaces are quite common in text, the LCS of any two bits of
+  ;; text will include a lot of them. However when there are no words
+  ;; between them in the LCS it is better to collapse them so that
+  ;; instead of diffing: 'a b' and 'd e' and ((:del a) (:add d) " "
+  ;; (:del b) (:add e))' we get ((:del "a b") (:add "d e")) We also
+  ;; get rid of any leading spaces.
+  (let ((just-saw-space t))
+    (remove-if (lambda (x)
+                 (cond
+                   ((string= (text x) " ")
+                    (prog1 just-saw-space
+                      (setf just-saw-space t)))
+                   (t (setf just-saw-space nil)))) lcs)))
 
 (defun emit-textified-diffs (next-lcs v i max-i marker-name output)
   (cond

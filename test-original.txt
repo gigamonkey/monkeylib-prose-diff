@@ -1,3 +1,5 @@
+-*- mode: markup; -*-
+
 A test document. This is a paragraph that should appear in both versions.
 
 Will be slightly edited in the edited version.
@@ -14,4 +16,28 @@ Deletion is the fate of this block of text.
 I like dogs a lot. I also like cats.
 
 Puppies are neat too. Kittens are fuzzy furballs.
+
+This is \i{quux} formatted text.
+
+* Tokenization tests
+
+Depending on how we split text into tokens when computing the LCS we
+can get slightly better or worse diffs. The remaining paragraphs in
+this section show some of the issues.
+
+Foo bar baz and stuff. Ideally there's one addition and one deletion.
+
+One foo bar baz and stuff. Ideally there's one addition and one deletion.
+
+Two foo bar baz and stuff. Ideally there's one addition and one deletion.
+
+Three foo bar baz and stuff. Ideally there's one addition and one deletion.
+
+Four I hope there's only one deletion and addition following: foo bar baz
+
+Five I hope there's only one deletion and addition following: quux biff boom and stuff.
+
+A sentence that ends with foo. Ideally foo will not be struck out in the diff.
+
+A sentence that ends with foo. Ideally the only diff will be the addition of quotes.
 

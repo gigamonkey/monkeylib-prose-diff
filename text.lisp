@@ -2,7 +2,7 @@
 
 (defvar *interned-text* (make-hash-table :test #'equal))
 
-(defparameter *token-scanner* (cl-ppcre:create-scanner "(\\w+\\s*|[\\W\\S])"))
+(defparameter *token-scanner* (cl-ppcre:create-scanner "(\\w+|\\s+|[\\W\\S])"))
 
 (defclass propertied-text ()
   ((text :initarg :text :accessor text)
