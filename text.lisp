@@ -1,10 +1,15 @@
 (in-package :com.gigamonkeys.prose-diff)
 
-(defparameter *interned-text* (make-hash-table :test #'equal))
+(defvar *interned-text* (make-hash-table :test #'equal))
+
+(defparameter *token-scanner* (cl-ppcre:create-scanner "(\\w+\\s*|[\\W\\S])"))
 
 (defclass propertied-text ()
   ((text :initarg :text :accessor text)
    (properties :initarg :properties :accessor properties)))
+
+(defun clear-interned-text ()
+  (setf *interned-text* (make-hash-table :test #'equal)))
 
 (defun intern-text (text &optional properties)
   (let ((key (cons text properties)))
@@ -25,32 +30,39 @@
     (error 'print-not-readable object))
   (format stream "\"~a\"~@[[~{~(~a~)~^:~}]~]" (text object) (properties object)))
 
-(defun textify-markup (markup all-text)
-  "Convert a Markup sexp into a vector of interned propertied-text
-objects."
-  (coerce (%textify-markup markup () all-text) 'vector))
+(defun textify-markup (markup-list)
+  "Convert a list of Markup sexps into a vector of interned
+propertied-text objects."
+  (let ((v (make-array 10 :adjustable t :fill-pointer 0)))
+    (loop for markup in markup-list do (vector-push-extend* (%textify-markup markup ()) v))
+    v))
 
 (defun detextify-markup (v)
-  (or (first (%detextify-markup v 0 (length v) ())) ""))
+  "Convert a vector of propertied-text object (such as produced by
+textify-markup into a list of Markup sexps."
+  (values (%detextify-markup v 0 (length v) ())))
 
-(defgeneric %textify-markup (markup properties all-text))
+(defgeneric %textify-markup (markup properties))
 
-(defmethod %textify-markup ((markup cons) properties all-text)
+(defmethod %textify-markup ((markup cons) properties)
   (destructuring-bind (tag &rest body) markup
     (let ((props (cons tag properties))
           (results ()))
       (loop for element in body do 
-           (loop for x in (%textify-markup element props all-text) do (push x results)))
+           (loop for x in (%textify-markup element props) do (push x results)))
       ;;; This next line is a bit of a kludge to keep adjacent
-      ;;; elements with the same tag from merging. Potentially it
-      ;;; could be construed as a feature if certain elements would
-      ;;; merge (i.e. if you have (:i "foo") (:i "bar") that should
-      ;;; perhaps turn into (:i "foobar")
+      ;;; elements with the same tag, e.g. adjacent :P's, from
+      ;;; merging.
       (push (intern-text "" properties) results)
       (nreverse results))))
 
-(defmethod %textify-markup ((markup string) properties all-text)
-  (mapcar (lambda (tok) (intern-text tok properties)) (tokenize-text markup all-text)))
+(defmethod %textify-markup ((markup string) properties)
+  (mapcar (lambda (tok) (intern-text tok properties)) (tokenize-text markup)))
+
+(defun tokenize-text (text)
+  "Split a text string into a list of tokens containing either all the
+text split into words, whitespace, and punctuation or just the words."
+  (cl-ppcre:all-matches-as-strings *token-scanner* text))
 
 (defun %detextify-markup (v start end open-props)
   (assert (not (null start)))
@@ -82,9 +94,6 @@ objects."
         (save-text)))
     (values (nreverse result) (1+ i))))
 
-(defun take (list n)
-  (let ((tail (nthcdr n list)))
-    (values (ldiff list tail) tail)))
 
 (defun new-open-p (text-props open-props)
   (equal (last text-props (length open-props)) open-props))
@@ -96,22 +105,11 @@ objects."
             "Remaining props ~s not equal to open props ~s" open open-props)
     unopen))
 
-(defun split-list (list tail)
-  (let ((rest (nthcdr (or (search tail list) (error "~a not found in ~a" tail list)) list)))
-    (values (ldiff list rest) rest)))
-
+;; used?
 (defun tag (tags rest)
   (cond
     ((null tags) rest)
     ((null (cdr tags)) (cons (car tags) rest))
     (t (list (car tags) (tag (cdr tags) rest)))))
     
-            
 
-(defun longer (list-a list-b)
-  (cond
-    ((endp list-b)
-     (not (endp list-a)))
-    ((endp list-a)
-     nil)
-    (t (longer (cdr list-a) (cdr list-b)))))

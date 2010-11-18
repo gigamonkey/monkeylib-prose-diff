@@ -1,11 +1,23 @@
 (in-package :com.gigamonkeys.prose-diff)
 
 (defun lcs (a b)
+  "Compute the longest common subsequence of vectors `a' and `b'"
   (extract-lcs (%lcs-table a b) a b))
 
 (defun lcs-length (a b)
+  "Compute the length of the longest common subsequence of vectors `a' and `b'"
   (multiple-value-bind (table m n) (%lcs-table a b)
     (aref table n m)))
+
+(defun similarity (a b)
+  "Compute the similarity of vectors `a' and `b' in terms of the
+average of the ratios of the length of the LCS to their length."
+  (let ((lcs-length (lcs-length a b)))
+    (/ (+ (/ lcs-length (length a)) (/ lcs-length (length b))) 2.0d0)))
+
+(defun one-way-similarity (a b)
+  "Like `similarity' but in only one direction."
+  (float (/ (lcs-length a b) (length a)) 0d0))
 
 (defun %lcs-table (a b)
     
@@ -53,7 +65,7 @@
 
 (defun diff-textified-markup (a b)
   (clean-diff-vector
-   (diff-textified-vectors (textify-markup a t) (textify-markup b t))))
+   (diff-textified-vectors (textify-markup a) (textify-markup b))))
 
 (defun diff-textified-vectors (old new)
 
@@ -68,7 +80,10 @@
        (setf new-i (emit-textified-diffs next-lcs new new-i new-length :add output))
        (vector-push-extend next-lcs output)
 
-     finally (return output)))
+     finally
+       (setf old-i (emit-textified-diffs (cons nil nil) old old-i old-length :del output))
+       (setf new-i (emit-textified-diffs (cons nil nil) new new-i new-length :add output))
+       (return output)))
 
 (defun emit-textified-diffs (next-lcs v i max-i marker-name output)
   (cond
@@ -88,22 +103,9 @@
 
 (defun diff-junk (text)
   "Empty text elements that are being deleted will just mess up the
-detextification algorithm."
+detextification algorithm. Empty :adds, on the other hand, are still
+needed to separate elements."
   (and (string= (text text) "") (eql (first (properties text)) :del)))
-
-(defun foo-test ()
-  (list
-   (rewrite-adds-and-deletes
-    (detextify-markup
-     (diff-textified-markup
-      '(:p "foo " (:i "quux") " baz")
-      '(:p "foo " (:b "quux") " baz"))))
-
-  (rewrite-adds-and-deletes
-   (detextify-markup
-    (diff-textified-markup
-     '(:p "foo " (:i "quux bar biff") " baz")
-     '(:p "foo " (:i "quux baz boom") " baz"))))))
 
 (defun full-file-diff (old new)
   (remove-empties
@@ -153,22 +155,6 @@ Returns which one it is since there should only be one or the other."
               ((eql t1 tag) rest)
               (t `(,t1 ,@rest)))))))
     (t tree)))
-
-
-
-(defun remove-tag-test ()
-  (and 
-   (equalp
-    (remove-tag :add '(:i (:b (:add "foo" (:x "abc")))))
-    '(:i (:b "foo" (:x "abc"))))
-
-   (equalp
-    (remove-tag :b '(:i (:b (:add "foo" (:x "abc")))))
-    '(:i (:add "foo" (:x "abc"))))
-
-   (equalp
-    (remove-tag :i '(:i (:b (:add "foo" (:x "abc")))))
-    '(:b (:add "foo" (:x "abc"))))))
 
 (defun nested-tags (tree)
   (if (consp tree)
