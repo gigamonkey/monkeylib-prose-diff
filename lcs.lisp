@@ -51,38 +51,6 @@
     (coerce lcs 'vector)))
 
 
-(defun diff-vectors (old new)
-
-  (loop with output = (make-array (length new) :adjustable t :fill-pointer 0)
-     with old-i = 0
-     with old-length = (length old)
-     with new-i = 0
-     with new-length = (length new)
-     for next-lcs across (lcs old new) 
-     do
-       (setf old-i (emit-diffs next-lcs old old-i old-length :del output))
-       (setf new-i (emit-diffs next-lcs new new-i new-length :add output))
-       (vector-push-extend next-lcs output)
-
-     finally (return output)))
-
-(defun emit-diffs (next-lcs v i max-i marker-name output)
-  (cond
-    ((< i max-i) 
-     (let ((idx (or (position next-lcs v :start i) max-i)))
-       (cond
-         ((> idx i)
-          (vector-push-extend (open-marker marker-name) output)
-          (loop for j from i below idx do (vector-push-extend (aref v j) output))
-         (vector-push-extend (close-marker marker-name) output)
-          (1+ idx))
-         (t
-          (1+ i)))))
-    (t i)))
-
-(defun diff-linearized-markup (a b)
-  (diff-vectors (linearize-markup a t) (linearize-markup b t)))
-
 (defun diff-textified-markup (a b)
   (clean-diff-vector
    (diff-textified-vectors (textify-markup a t) (textify-markup b t))))

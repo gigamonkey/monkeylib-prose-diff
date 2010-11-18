@@ -26,7 +26,8 @@
   (format stream "\"~a\"~@[[~{~(~a~)~^:~}]~]" (text object) (properties object)))
 
 (defun textify-markup (markup all-text)
-  "Convert a Markup sexp into a vector of interned text objects."
+  "Convert a Markup sexp into a vector of interned propertied-text
+objects."
   (coerce (%textify-markup markup () all-text) 'vector))
 
 (defun detextify-markup (v)
