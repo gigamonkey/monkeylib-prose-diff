@@ -37,19 +37,15 @@ Optionally frob the computed LCS before computing the diff."
     (t i)))
 
 (defun diff-textified-markup (a b)
-  (clean-diff-vector
-   (diff-textified-vectors (textify-markup a) (textify-markup b))))
-
-(defun diff-textified-vectors (old new)
-  (let ((diff (diff-vectors old new #'collapse-spaces-in-lcs)))
-    (map-into diff #'translate-textified diff)))
+  (let ((diff (diff-vectors (textify-markup a) (textify-markup b) #'collapse-spaces-in-lcs)))
+    (clean-diff-vector (map-into diff #'translate-textified diff))))
 
 (defun collapse-spaces-in-lcs (lcs)
   ;; Since spaces are quite common in text, the LCS of any two bits of
   ;; text will include a lot of them. However when there are no words
   ;; between them in the LCS it is better to collapse them so that
-  ;; instead of diffing: 'a b' and 'd e' and ((:del a) (:add d) " "
-  ;; (:del b) (:add e))' we get ((:del "a b") (:add "d e")) We also
+  ;; instead of diffing: 'a b' and 'd e' and ((:delete a) (:add d) " "
+  ;; (:delete b) (:add e))' we get ((:delete "a b") (:add "d e")) We also
   ;; get rid of any leading spaces.
   (let ((just-saw-space t))
     (remove-if (lambda (x)
@@ -63,8 +59,7 @@ Optionally frob the computed LCS before computing the diff."
   (destructuring-bind (label . thing) x
     (ecase label
       (:lcs thing)
-      (:add (add-property thing :add))
-      (:delete (add-property thing :del)))))
+      ((:add :delete) (add-property thing label)))))
 
 (defun clean-diff-vector (v)
   (remove-if #'diff-junk v))
@@ -73,4 +68,4 @@ Optionally frob the computed LCS before computing the diff."
   "Empty text elements that are being deleted will just mess up the
 detextification algorithm. Empty :adds, on the other hand, are still
 needed to separate elements."
-  (and (string= (text text) "") (eql (first (properties text)) :del)))
+  (and (string= (text text) "") (eql (first (properties text)) :delete)))

@@ -104,7 +104,7 @@ chunk on the other side."
   (with-output-to-file (out output)
     (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
       (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (push '(:del . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
       (com.gigamonkeys.markup3.html::render-sexp
        (cons :body (diff-to-markup original edited)) out :stylesheet "diff.css"))))
 
@@ -119,7 +119,7 @@ chunk on the other side."
 
 (defun wrap-add-delete (sexp)
   (destructuring-bind (which &rest wrapped) sexp
-    (let ((class (ecase which (:add "added") (:del "deleted"))))
+    (let ((class (format nil "~(~aed~)" which)))
       (cond
         ((and (consp (first wrapped)) (block-element-p (car (first wrapped))))
          `((:div :class ,class) ,@wrapped))
@@ -148,7 +148,7 @@ chunk on the other side."
                   (mapcar #'remove-empties (detextify-markup diff)))))
 
 (defun rewrite-adds-and-deletes (tree)
-  "Rewrite the Markup trees so that :add and :del tags "
+  "Rewrite the Markup trees so that :add and :delete tags "
   (cond
     ((consp tree)
      (let ((add-or-delete (has-nested-add-or-delete-p tree)))
@@ -185,11 +185,11 @@ chunk on the other side."
     (first (helper tree))))
 
 (defun has-nested-add-or-delete-p (tree)
-  "Tree has a nested :add or :del tag and it's not the only tag.
+  "Tree has a nested :add or :delete tag and it's not the only tag.
 Returns which one it is since there should only be one or the other."
   (let ((tags (nested-tags tree)))
     (and (not (null (cdr tags)))
-         (or (find :add tags) (find :del tags)))))
+         (or (find :add tags) (find :delete tags)))))
 
 (defun nested-tags (tree)
   (if (consp tree)
