@@ -9,7 +9,8 @@
    (:file "lcs" :depends-on ("packages"))
    (:file "tokenize" :depends-on ("packages"))
    (:file "text" :depends-on ("packages"))
-   (:file "utilities" :depends-on ("packages")))
+   (:file "utilities" :depends-on ("packages"))
+   (:file "diff" :depends-on ("packages")))
   :depends-on (:cl-ppcre
                :com.gigamonkeys.pathnames
                :com.gigamonkeys.utilities

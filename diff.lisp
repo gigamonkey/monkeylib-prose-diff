@@ -37,8 +37,7 @@ Optionally frob the computed LCS before computing the diff."
     (t i)))
 
 (defun diff-textified-markup (a b)
-  (remove-if 
-   #'diff-junk
+  (clean-diff-vector
    (diff-textified-vectors (textify-markup a) (textify-markup b))))
 
 (defun diff-textified-vectors (old new)
@@ -66,6 +65,9 @@ Optionally frob the computed LCS before computing the diff."
       (:lcs thing)
       (:add (add-property thing :add))
       (:delete (add-property thing :del)))))
+
+(defun clean-diff-vector (v)
+  (remove-if #'diff-junk v))
 
 (defun diff-junk (text)
   "Empty text elements that are being deleted will just mess up the

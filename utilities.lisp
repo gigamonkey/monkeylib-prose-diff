@@ -1,4 +1,4 @@
-(in-pacakge :com.gigamonkeys.prose-diff)
+(in-package :com.gigamonkeys.prose-diff)
 
 ;;; Bits of utility code that perhaps should be moved into
 ;;; com.gigamonkeys.utilities or replaced with calls to equivalent
