@@ -69,3 +69,6 @@
                    (one-way-similarity (textified p) (textified o))
                    (identical-p p)
                    (symmetrical-p p))))))
+
+(defun chunk-similarity (a b)
+  (similarity (textified a) (textified b)))

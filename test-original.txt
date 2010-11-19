@@ -1,5 +1,7 @@
 -*- mode: markup; -*-
 
+* Prose diff test document
+
 A test document. This is a paragraph that should appear in both versions.
 
 Will be slightly edited in the edited version.
@@ -11,6 +13,10 @@ This is a short paragraph that will be joined with the next paragraph.
 
 This paragraph will be joined with the previous one.
 
+This paragraph will be moved.
+
+This paragraph will be moved and edited.
+
 Deletion is the fate of this block of text.
 
 I like dogs a lot. I also like cats.
@@ -19,7 +25,11 @@ Puppies are neat too. Kittens are fuzzy furballs.
 
 This is \i{quux} formatted text.
 
-* Tokenization tests
+Moving up is what this paragraph will do.
+
+Upward movement with editing is what happens to this text.
+
+** Tokenization tests
 
 Depending on how we split text into tokens when computing the LCS we
 can get slightly better or worse diffs. The remaining paragraphs in
@@ -35,7 +45,7 @@ Three foo bar baz and stuff. Ideally there's one addition and one deletion.
 
 Four I hope there's only one deletion and addition following: foo bar baz
 
-Five I hope there's only one deletion and addition following: quux biff boom and stuff.
+Five I hope there's only one deletion and addition following: foo bar baz and stuff.
 
 A sentence that ends with foo. Ideally foo will not be struck out in the diff.
 

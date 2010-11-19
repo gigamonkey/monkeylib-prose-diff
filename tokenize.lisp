@@ -24,6 +24,9 @@
 (defun make-empty-chunk ()
   (make-chunk ()))
 
+(defun empty-chunk-p (chunk)
+  (null (markup chunk)))
+
 (defun combine-chunks (&rest chunks)
   (make-instance 'chunk :markup (apply #'append (mapcar #'markup chunks))))
 
@@ -47,13 +50,6 @@
 
 (defun symmetrical-p (p)
   (and (most-similar p) (eql (most-similar (most-similar p)) p)))
-
-(defun chunk-similarity (a b)
-  (similarity (textified a) (textified b)))
-
-
-
-
 
 (defun establish-pairs (original edited)
   (set-most-similar original edited)
@@ -119,7 +115,7 @@ chunk on the other side."
 
 (defun wrap-add-delete (sexp)
   (destructuring-bind (which &rest wrapped) sexp
-    (let ((class (format nil "~(~aed~)" which)))
+    (let ((class (string-downcase which)))
       (cond
         ((and (consp (first wrapped)) (block-element-p (car (first wrapped))))
          `((:div :class ,class) ,@wrapped))
@@ -131,10 +127,15 @@ chunk on the other side."
   (let ((original (paragraphs original-file))
         (edited (paragraphs edited-file)))
     (establish-pairs original edited)
-    (loop for x across (diff-vectors (as-pairs original) (as-pairs edited))
-       for pair = (cdr x)
-       for diff = (diff-pair pair)
-       nconc (cleaned-diff-output diff))))
+    (loop for (label . pair) across (diff-vectors (as-pairs original) (as-pairs edited))
+       for diff = (cleaned-diff-output (diff-pair pair))
+       nconc 
+         (cond
+           ((and (eql label :add) (not (empty-chunk-p (original pair))))
+            `(((:div :class "moved") ,@diff)))
+           ((and (eql label :delete) (not (empty-chunk-p (edited pair))))
+            `(((:div :class "moved-away") ,@diff)))
+           (t diff)))))
 
 (defun as-pairs (chunks) (map 'vector #'pair chunks))
 
