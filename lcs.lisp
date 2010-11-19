@@ -62,66 +62,6 @@ average of the ratios of the length of the LCS to their length."
               (format t "what! ~s, ~s"j i)))))
     (coerce lcs 'vector)))
 
-
-(defun diff-textified-markup (a b)
-  (clean-diff-vector
-   (diff-textified-vectors (textify-markup a) (textify-markup b))))
-
-(defun diff-textified-vectors (old new)
-
-  (loop with output = (make-array (length new) :adjustable t :fill-pointer 0)
-     with old-i = 0
-     with old-length = (length old)
-     with new-i = 0
-     with new-length = (length new)
-     for next-lcs across (collapse-spaces-in-lcs (lcs old new))
-     do
-       (setf old-i (emit-textified-diffs next-lcs old old-i old-length :del output))
-       (setf new-i (emit-textified-diffs next-lcs new new-i new-length :add output))
-       (vector-push-extend next-lcs output)
-
-     finally
-       (setf old-i (emit-textified-diffs (cons nil nil) old old-i old-length :del output))
-       (setf new-i (emit-textified-diffs (cons nil nil) new new-i new-length :add output))
-       (return output)))
-
-(defun collapse-spaces-in-lcs (lcs)
-  ;; Since spaces are quite common in text, the LCS of any two bits of
-  ;; text will include a lot of them. However when there are no words
-  ;; between them in the LCS it is better to collapse them so that
-  ;; instead of diffing: 'a b' and 'd e' and ((:del a) (:add d) " "
-  ;; (:del b) (:add e))' we get ((:del "a b") (:add "d e")) We also
-  ;; get rid of any leading spaces.
-  (let ((just-saw-space t))
-    (remove-if (lambda (x)
-                 (cond
-                   ((string= (text x) " ")
-                    (prog1 just-saw-space
-                      (setf just-saw-space t)))
-                   (t (setf just-saw-space nil)))) lcs)))
-
-(defun emit-textified-diffs (next-lcs v i max-i marker-name output)
-  (cond
-    ((< i max-i) 
-     (let ((idx (or (position next-lcs v :start i) max-i)))
-       (cond
-         ((> idx i)
-          (loop for j from i below idx do
-               (vector-push-extend (add-property (aref v j) marker-name) output))
-          (1+ idx))
-         (t
-          (1+ i)))))
-    (t i)))
-
-(defun clean-diff-vector (v)
-  (remove-if #'diff-junk v))
-
-(defun diff-junk (text)
-  "Empty text elements that are being deleted will just mess up the
-detextification algorithm. Empty :adds, on the other hand, are still
-needed to separate elements."
-  (and (string= (text text) "") (eql (first (properties text)) :del)))
-
 (defun full-file-diff (old new)
   (remove-empties
    (rewrite-adds-and-deletes

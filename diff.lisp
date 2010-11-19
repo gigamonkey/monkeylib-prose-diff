@@ -4,23 +4,24 @@
 ;;; Generic functions for diffing vectors of objects.
 ;;;
 
-(defun diff-vectors (old new)
+(defun diff-vectors (old new &optional (lcs-frobber #'identity))
   "Diff two vectors returning a vector with the elements of old and
-new wrapped in conses whose CAR is either :LCS, :DELETE, or :ADD."
+new wrapped in conses whose CAR is either :LCS, :DELETE, or :ADD.
+Optionally frob the computed LCS before computing the diff."
   (loop with output = (make-array (length new) :adjustable t :fill-pointer 0)
      with old-i = 0
      with old-length = (length old)
      with new-i = 0
      with new-length = (length new)
-     for next-lcs across (lcs old new) 
+     for next-lcs across (funcall lcs-frobber (lcs old new))
      do
        (setf old-i (emit-diffs next-lcs old old-i old-length :delete output))
        (setf new-i (emit-diffs next-lcs new new-i new-length :add output))
        (vector-push-extend (cons :lcs next-lcs) output)
 
      finally
-       (setf old-i (emit-diffs (cons nil nil) old old-i old-length :delete output))
-       (setf new-i (emit-diffs (cons nil nil) new new-i new-length :add output))
+       (emit-diffs (cons nil nil) old old-i old-length :delete output)
+       (emit-diffs (cons nil nil) new new-i new-length :add output)
        (return output)))
 
 (defun emit-diffs (next-lcs v i max-i marker output)
@@ -34,3 +35,40 @@ new wrapped in conses whose CAR is either :LCS, :DELETE, or :ADD."
          (t
           (1+ i)))))
     (t i)))
+
+(defun diff-textified-markup (a b)
+  (remove-if 
+   #'diff-junk
+   (diff-textified-vectors (textify-markup a) (textify-markup b))))
+
+(defun diff-textified-vectors (old new)
+  (let ((diff (diff-vectors old new #'collapse-spaces-in-lcs)))
+    (map-into diff #'translate-textified diff)))
+
+(defun collapse-spaces-in-lcs (lcs)
+  ;; Since spaces are quite common in text, the LCS of any two bits of
+  ;; text will include a lot of them. However when there are no words
+  ;; between them in the LCS it is better to collapse them so that
+  ;; instead of diffing: 'a b' and 'd e' and ((:del a) (:add d) " "
+  ;; (:del b) (:add e))' we get ((:del "a b") (:add "d e")) We also
+  ;; get rid of any leading spaces.
+  (let ((just-saw-space t))
+    (remove-if (lambda (x)
+                 (cond
+                   ((string= (text x) " ")
+                    (prog1 just-saw-space
+                      (setf just-saw-space t)))
+                   (t (setf just-saw-space nil)))) lcs)))
+
+(defun translate-textified (x)
+  (destructuring-bind (label . thing) x
+    (ecase label
+      (:lcs thing)
+      (:add (add-property thing :add))
+      (:delete (add-property thing :del)))))
+
+(defun diff-junk (text)
+  "Empty text elements that are being deleted will just mess up the
+detextification algorithm. Empty :adds, on the other hand, are still
+needed to separate elements."
+  (and (string= (text text) "") (eql (first (properties text)) :del)))
