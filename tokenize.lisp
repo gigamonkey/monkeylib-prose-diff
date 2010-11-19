@@ -51,19 +51,9 @@
 (defun chunk-similarity (a b)
   (similarity (textified a) (textified b)))
 
-(defun diff-to-markup (original-file edited-file)
-  (let ((original (paragraphs original-file))
-        (edited (paragraphs edited-file)))
-    (establish-pairs original edited)
-    (loop for x across (diff-vectors (as-pairs original) (as-pairs edited))
-       for pair = (cdr x)
-       for diff = (diff-pair pair)
-       nconc (cleaned-diff-output diff))))
 
-(defun cleaned-diff-output (diff)
-  (mapcar #'rewrite-adds-and-deletes
-          (remove nil
-                  (mapcar #'remove-empties (detextify-markup diff)))))
+
+
 
 (defun establish-pairs (original edited)
   (set-most-similar original edited)
@@ -76,6 +66,16 @@
 chunk on the other side."
   (loop for p in edited do (find-most-similar p original))
   (loop for p in original do (find-most-similar p edited)))
+
+(defun find-most-similar (p others)
+  (loop with max = -1
+     with best = nil
+     for o in others
+     for similarity = (similarity (textified p) (textified o)) do
+       (when (> similarity max)
+         (setf max similarity)
+         (setf best o))
+     finally (setf (most-similar p) best)))
 
 (defun pair-symmetrical (original)
   (loop for chunk in original
@@ -95,85 +95,18 @@ chunk on the other side."
          (if original-p
              (pair-chunks chunk empty)
              (pair-chunks empty chunk)))))
-
-(defun possible-split (p)
-  (let ((original (most-similar p)))
-    (when (symmetrical-p original)
-      (let* ((edited (most-similar original))
-             (current-simmilarity (chunk-similarity original edited))
-             (new-similarity-before (similarity (textified original)
-                                                (concatenate 'vector
-                                                             (textified p)
-                                                             (textified edited))))
-             (new-similarity-after
-              (similarity (textified original)
-                          (concatenate 'vector
-                                       (textified edited)
-                                       (textified p)))))
-
-        (format t "~&POSSIBLE SPLIT?")
-        (format t "~&Original/edited similarity: ~f" current-simmilarity)
-        (format t "~&Combined similarity before: ~f; after: ~f"
-                new-similarity-before
-                new-similarity-after)))))
                                   
-(defun find-most-similar (p others)
-  (loop with max = -1
-     with best = nil
-     for o in others
-     for similarity = (similarity (textified p) (textified o)) do
-       (when (> similarity max)
-         (setf max similarity)
-         (setf best o))
-     finally (setf (most-similar p) best)))
+;;;
+;;; HTML generation -- given two Markup files generate an HTML file of the diff.
+;;;
 
-(defun show-pairings (original-file edited-file)
-  (let ((original (paragraphs original-file))
-        (edited (paragraphs edited-file)))
-    (establish-pairs original edited)
-    (let ((*print-right-margin* nil)
-          (*print-pretty* nil))
-      (loop for (label . pair) across (diff-vectors (as-pairs original) (as-pairs edited)) 
-         for diff = (diff-pair pair)
-         do
-           (format t "~2&~a: original: ~s~&edited: ~s" label (textified (original pair)) (textified (edited pair)))
-           (format t "~&diff: ~s~&~s" diff (cleaned-diff-output diff))))))
-
-(defun show-similarities (original-file edited-file)
-  (let ((original (paragraphs original-file))
-        (edited  (paragraphs edited-file)))
-
-    (set-most-similar original edited)
-
-    (let ((identical (remove-if-not #'identical-p edited))
-          (symmetrical (remove-if-not #'symmetrical-p edited)))
-
-      (format t "~&~:d original paragraph~:p" (length original))
-      (format t "~&~:d edited paragraph~:p" (length edited))
-      (format t "~&~:d identical paragraph~:p" (length identical))
-      (format t "~&~:d symmetrical paragraphs." (length symmetrical))
-      
-      (format t "~2&EDITED:")
-      (loop for p in edited
-           for o = (most-similar p) do
-           (format t "~2&original: ~s~&edited: ~s~&similarity: ~f (~f one-way); identical: ~a; symmetrical: ~a"
-                   (markup o)
-                   (markup p)
-                   (chunk-similarity p o)
-                   (one-way-similarity (textified p) (textified o))
-                   (identical-p p)
-                   (symmetrical-p p)))
-
-      (format t "~2&ORIGINAL:")
-      (loop for p in original
-           for o = (most-similar p) do
-           (format t "~2&original: ~s~&edited: ~s~&similarity: ~f (~f one-way); identical: ~a; symmetrical: ~a"
-                   (markup o)
-                   (markup p)
-                   (chunk-similarity p o)
-                   (one-way-similarity (textified p) (textified o))
-                   (identical-p p)
-                   (symmetrical-p p))))))
+(defun diff-to-html (original edited output)
+  (with-output-to-file (out output)
+    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
+      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (push '(:del . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (com.gigamonkeys.markup3.html::render-sexp
+       (cons :body (diff-to-markup original edited)) out :stylesheet "diff.css"))))
 
 (defun block-element-p (x)
   (member x 
@@ -183,14 +116,6 @@ chunk on the other side."
             :area :base :blockquote :br :button :caption :col :dd :div :dt :h1
             :h2 :h3 :h4 :h5 :h6 :hr :input :li :link :meta :option :p :param
             :td :textarea :th :title)))
-
-(defun diff-to-html (original edited)
-  (with-output-to-file (out "test-diff.html")
-    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
-      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (push '(:del . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (com.gigamonkeys.markup3.html::render-sexp
-       (cons :body (diff-to-markup original edited)) out :stylesheet "diff.css"))))
 
 (defun wrap-add-delete (sexp)
   (destructuring-bind (which &rest wrapped) sexp
@@ -202,11 +127,72 @@ chunk on the other side."
 
 
 
+(defun diff-to-markup (original-file edited-file)
+  (let ((original (paragraphs original-file))
+        (edited (paragraphs edited-file)))
+    (establish-pairs original edited)
+    (loop for x across (diff-vectors (as-pairs original) (as-pairs edited))
+       for pair = (cdr x)
+       for diff = (diff-pair pair)
+       nconc (cleaned-diff-output diff))))
+
+(defun as-pairs (chunks) (map 'vector #'pair chunks))
 
 (defun diff-pair (pair)
   (clean-diff-vector
    (diff-textified-vectors (textified (original pair)) (textified (edited pair)))))
 
+(defun cleaned-diff-output (diff)
+  (mapcar #'rewrite-adds-and-deletes
+          (remove nil
+                  (mapcar #'remove-empties (detextify-markup diff)))))
 
-(defun as-pairs (chunks)
-  (map 'vector #'pair chunks))
+(defun rewrite-adds-and-deletes (tree)
+  "Rewrite the Markup trees so that :add and :del tags "
+  (cond
+    ((consp tree)
+     (let ((add-or-delete (has-nested-add-or-delete-p tree)))
+       (when add-or-delete
+         (setf tree (promote-tag add-or-delete tree)))
+       (mapcar #'rewrite-adds-and-deletes tree)))
+    (t tree)))
+
+(defun promote-tag (tag tree)
+  (list tag (remove-tag tag tree)))
+
+(defun remove-tag (tag tree)
+  (cond 
+    ((consp tree)
+     (cond 
+       ((consp (second tree))
+        (destructuring-bind (t1 (t2 . rest)) tree
+          (cond
+            ((eql t1 tag) `(,t2 ,@rest))
+            ((eql t2 tag) `(,t1 ,@rest))
+            (t `(,t1 ,(remove-tag tag `(,t2 ,@rest)))))))
+       (t (destructuring-bind (t1 . rest) tree
+            (cond
+              ((eql t1 tag) rest)
+              (t `(,t1 ,@rest)))))))
+    (t tree)))
+
+(defun remove-empties (tree)
+  (labels ((helper (x)
+             (cond
+               ((and (consp x) (null (rest x))) nil)
+               ((consp x) (list (mapcan #'helper x)))
+               (t (list x)))))
+    (first (helper tree))))
+
+(defun has-nested-add-or-delete-p (tree)
+  "Tree has a nested :add or :del tag and it's not the only tag.
+Returns which one it is since there should only be one or the other."
+  (let ((tags (nested-tags tree)))
+    (and (not (null (cdr tags)))
+         (or (find :add tags) (find :del tags)))))
+
+(defun nested-tags (tree)
+  (if (consp tree)
+      (if (null (cddr tree))
+          (cons (car tree) (nested-tags (second tree)))
+          (list (car tree)))))

@@ -2,7 +2,26 @@
 
 (defun lcs (a b)
   "Compute the longest common subsequence of vectors `a' and `b'"
-  (extract-lcs (%lcs-table a b) a b))
+  (let ((table (%lcs-table a b))
+        (lcs ())
+        (i (length a))
+        (j (length b)))
+    
+    (loop while (> (aref table j i) 0) do
+         (let* ((current (aref table j i))
+                (previous (1- current)))
+           
+           (cond
+             ((and (eql previous (aref table (1- j) (1- i)))
+                   (eql previous (aref table j (1- i)))
+                   (eql previous (aref table (1- j) i)))
+              (push (aref a (1- i)) lcs)
+              (decf j)
+              (decf i))
+             ((eql current (aref table (1- j) i)) (decf j))
+             ((eql current (aref table j (1- i))) (decf i))
+             (t (error "Assertion gone haywire: ~s ~s" j i)))))
+    (coerce lcs 'vector)))
 
 (defun lcs-length (a b)
   "Compute the length of the longest common subsequence of vectors `a' and `b'"
@@ -20,7 +39,9 @@ average of the ratios of the length of the LCS to their length."
   (float (/ (lcs-length a b) (length a)) 0d0))
 
 (defun %lcs-table (a b)
-    
+  ;; This is implemented with a simple dynamic programming algorithm.
+  ;; There are some optimizations to be had but I haven't put them in
+  ;; yet.
   (let* ((m (length a))
          (n (length b))
          (table (make-array (list (1+ n) (1+ m)) :initial-element 0)))
@@ -37,82 +58,3 @@ average of the ratios of the length of the LCS to their length."
               (setf (aref table j i) (lcs-length j i)))))
 
     (values table m n)))
-
-(defun extract-lcs (table a b)
-  (let ((lcs ())
-        (i (length a))
-        (j (length b)))
-
-    (loop while (> (aref table j i) 0) do
-         (let* ((current (aref table j i))
-                (previous (1- current)))
-           
-           (cond
-             ((and (eql previous (aref table (1- j) (1- i)))
-                   (eql previous (aref table j (1- i)))
-                   (eql previous (aref table (1- j) i)))
-              (push (aref a (1- i)) lcs)
-              (decf j)
-              (decf i))
-             ((eql current (aref table (1- j) i))
-              (decf j))
-             ((eql current (aref table j (1- i)))
-              (decf i))
-             (t
-              (format t "what! ~s, ~s"j i)))))
-    (coerce lcs 'vector)))
-
-(defun full-file-diff (old new)
-  (remove-empties
-   (rewrite-adds-and-deletes
-    (detextify-markup
-     (diff-textified-markup (parse-file old) (parse-file new))))))
-
-(defun remove-empties (tree)
-  (labels ((helper (x)
-             (cond
-               ((and (consp x) (null (rest x))) nil)
-               ((consp x) (list (mapcan #'helper x)))
-               (t (list x)))))
-    (first (helper tree))))
-
-(defun rewrite-adds-and-deletes (tree)
-  (cond
-    ((consp tree)
-     (let ((add-or-delete (has-nested-add-or-delete-p tree)))
-       (when add-or-delete
-         (setf tree (promote-tag add-or-delete tree)))
-       (mapcar #'rewrite-adds-and-deletes tree)))
-    (t tree)))
-
-(defun has-nested-add-or-delete-p (tree)
-  "Tree has a nested :add or :del tag and it's not the only tag.
-Returns which one it is since there should only be one or the other."
-  (let ((tags (nested-tags tree)))
-    (and (not (null (cdr tags)))
-         (or (find :add tags) (find :del tags)))))
-
-(defun promote-tag (tag tree)
-  (list tag (remove-tag tag tree)))
-
-(defun remove-tag (tag tree)
-  (cond 
-    ((consp tree)
-     (cond 
-       ((consp (second tree))
-        (destructuring-bind (t1 (t2 . rest)) tree
-          (cond
-            ((eql t1 tag) `(,t2 ,@rest))
-            ((eql t2 tag) `(,t1 ,@rest))
-            (t `(,t1 ,(remove-tag tag `(,t2 ,@rest)))))))
-       (t (destructuring-bind (t1 . rest) tree
-            (cond
-              ((eql t1 tag) rest)
-              (t `(,t1 ,@rest)))))))
-    (t tree)))
-
-(defun nested-tags (tree)
-  (if (consp tree)
-      (if (null (cddr tree))
-          (cons (car tree) (nested-tags (second tree)))
-          (list (car tree)))))
