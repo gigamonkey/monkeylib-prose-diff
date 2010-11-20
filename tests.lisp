@@ -15,6 +15,9 @@
     (remove-tag :i '(:i (:b (:add "foo" (:x "abc")))))
     '(:b (:add "foo" (:x "abc"))))))
 
+(defun diff-textified-markup (a b)
+  (diff-textified (textify-markup a) (textify-markup b)))
+
 (defun foo-test ()
   (list
    (rewrite-adds-and-deletes

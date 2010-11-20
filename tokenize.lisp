@@ -139,14 +139,18 @@ chunk on the other side."
 
 (defun as-pairs (chunks) (map 'vector #'pair chunks))
 
-(defun diff-pair (pair)
-  (clean-diff-vector
-   (diff-textified-vectors (textified (original pair)) (textified (edited pair)))))
-
 (defun cleaned-diff-output (diff)
   (mapcar #'rewrite-adds-and-deletes
           (remove nil
                   (mapcar #'remove-empties (detextify-markup diff)))))
+
+(defun remove-empties (tree)
+  (labels ((helper (x)
+             (cond
+               ((and (consp x) (null (rest x))) nil)
+               ((consp x) (list (mapcan #'helper x)))
+               (t (list x)))))
+    (first (helper tree))))
 
 (defun rewrite-adds-and-deletes (tree)
   "Rewrite the Markup trees so that :add and :delete tags "
@@ -157,6 +161,13 @@ chunk on the other side."
          (setf tree (promote-tag add-or-delete tree)))
        (mapcar #'rewrite-adds-and-deletes tree)))
     (t tree)))
+
+(defun has-nested-add-or-delete-p (tree)
+  "Tree has a nested :add or :delete tag and it's not the only tag.
+Returns which one it is since there should only be one or the other."
+  (let ((tags (nested-tags tree)))
+    (and (not (null (cdr tags)))
+         (or (find :add tags) (find :delete tags)))))
 
 (defun promote-tag (tag tree)
   (list tag (remove-tag tag tree)))
@@ -177,22 +188,8 @@ chunk on the other side."
               (t `(,t1 ,@rest)))))))
     (t tree)))
 
-(defun remove-empties (tree)
-  (labels ((helper (x)
-             (cond
-               ((and (consp x) (null (rest x))) nil)
-               ((consp x) (list (mapcan #'helper x)))
-               (t (list x)))))
-    (first (helper tree))))
-
-(defun has-nested-add-or-delete-p (tree)
-  "Tree has a nested :add or :delete tag and it's not the only tag.
-Returns which one it is since there should only be one or the other."
-  (let ((tags (nested-tags tree)))
-    (and (not (null (cdr tags)))
-         (or (find :add tags) (find :delete tags)))))
-
 (defun nested-tags (tree)
+  "Give a tree like '(:a (:b (:c ...))) the nested tags are (:a :b :c)"
   (if (consp tree)
       (if (null (cddr tree))
           (cons (car tree) (nested-tags (second tree)))
