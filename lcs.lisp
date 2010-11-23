@@ -2,26 +2,38 @@
 
 (defun lcs (a b)
   "Compute the longest common subsequence of vectors `a' and `b'"
-  (let ((table (%lcs-table a b))
-        (lcs ())
-        (i (length a))
-        (j (length b)))
+  (extract-lcs a (lcs-positions a b)))
+
+(defun lcs-positions (a b)
+  "Find the indices in a and b of the elements of the LCS."
+  (multiple-value-bind (table m n) (%lcs-table a b)
+    (let* ((len (aref table n m))
+           (a-indices (make-array len))
+           (b-indices (make-array len))
+           (idx (1- len))
+           (i (length a))
+           (j (length b)))
     
     (loop while (> (aref table j i) 0) do
          (let* ((current (aref table j i))
                 (previous (1- current)))
            
            (cond
-             ((and (eql previous (aref table (1- j) (1- i)))
-                   (eql previous (aref table j (1- i)))
-                   (eql previous (aref table (1- j) i)))
-              (push (aref a (1- i)) lcs)
+             ((and (= previous (aref table (1- j) (1- i)))
+                   (= previous (aref table j (1- i)))
+                   (= previous (aref table (1- j) i)))
               (decf j)
-              (decf i))
-             ((eql current (aref table (1- j) i)) (decf j))
-             ((eql current (aref table j (1- i))) (decf i))
+              (decf i)
+              (setf (aref a-indices idx) i)
+              (setf (aref b-indices idx) j)
+              (decf idx))
+             ((= current (aref table (1- j) i)) (decf j))
+             ((= current (aref table j (1- i))) (decf i))
              (t (error "Assertion gone haywire: ~s ~s" j i)))))
-    (coerce lcs 'vector)))
+    (values a-indices b-indices))))
+
+(defun extract-lcs (v indices)
+  (map 'vector (lambda (i) (aref v i)) indices))
 
 (defun lcs-length (a b)
   "Compute the length of the longest common subsequence of vectors `a' and `b'"

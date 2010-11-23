@@ -71,7 +71,33 @@ Optionally frob the computed LCS before computing the diff."
     (let ((diff (diff-vectors a b #'collapse-spaces-in-lcs)))
       (remove-if #'empty-delete? (map-into diff #'translate-textified diff)))))
 
+(defun split-positions (one-chunk parts)
+  "Find the positions where one-chunk should be split to get pieces
+  corresponding to the given parts, which are derived from one-chunk.
+  For instance, if one-chunk is a piece of text that was split up and
+  the pieces inserted at various places in the new document, it will
+  show up as a single deletion in the diff and multiple additions. Or
+  conversely, if a bunch of separate pieces (from different
+  paragraphs) in the original document were combined into contiguous
+  text in the edited document, we would have a single addition and
+  multiple deletions."
+  (multiple-value-bind (one-chunk-lcs-indices combined-lcs-indices) 
+      (lcs-positions one-chunk (concatenate-vectors parts))
+    (setf one-chunk-lcs-indices (coerce one-chunk-lcs-indices 'vector))
+    (setf combined-lcs-indices (coerce combined-lcs-indices 'vector))
+    (loop for s in (part-starts parts)
+       for prev-x = 0 then x
+       for x = (position-if (lambda (x) (>= x s)) combined-lcs-indices :start prev-x)
+       collect (aref one-chunk-lcs-indices x))))
 
+(defun split-vector (one-chunk parts)
+  (loop for (start end) on (split-positions one-chunk parts) 
+     collect (subseq one-chunk start end)))
 
+(defun part-starts (parts)
+  (loop for (p . rest) on parts
+     summing (length p) into total
+     when rest collect total into starts
+     finally (return (cons 0 starts))))
 
 
