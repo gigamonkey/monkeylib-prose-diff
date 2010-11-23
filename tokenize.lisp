@@ -52,31 +52,43 @@
   (and (most-similar p) (eql (most-similar (most-similar p)) p)))
 
 (defun establish-pairs (original edited)
-  (set-most-similar original edited)
-  (pair-symmetrical original)
+  (pair-identical original edited)
+  (pair-symmetrical original edited)
+
+  ;; Walk through each set of chunks and when
+  (setf original (join-chunks original))
+  (setf edited (join-chunks edited))
+
   (repair-asymmetrical original t)
   (repair-asymmetrical edited nil))
 
-(defun set-most-similar (original edited)
-  "Make each chunk in original and edited point to the most similar
-chunk on the other side."
-  (loop for p in edited do (find-most-similar p original))
-  (loop for p in original do (find-most-similar p edited)))
+(defun pair-identical (original edited)
+  (let ((identical (make-hash-table :test #'equal)))
+    (loop for o in original do (setf (gethash (markup o) identical) o))
+    (loop for e in edited 
+       for o = (gethash (markup e) identical)
+       do 
+         (when o
+           (setf (most-similar e) o)
+           (setf (most-similar o) e)))))
 
-(defun find-most-similar (p others)
-  (loop with max = -1
-     with best = nil
-     for o in others
-     for similarity = (similarity (textified p) (textified o)) do
-       (when (> similarity max)
-         (setf max similarity)
-         (setf best o))
-     finally (setf (most-similar p) best)))
-
-(defun pair-symmetrical (original)
+(defun pair-symmetrical (original edited)
+  (set-most-similar original edited)
   (loop for chunk in original
      when (symmetrical-p chunk) do
        (pair-chunks chunk (most-similar chunk))))
+
+(defun set-most-similar (original edited)
+  "Make each chunk in original and edited point to the most similar
+chunk on the other side unless they have already been paired with an
+identical chunk."
+  (loop for c in edited unless (most-similar c) do (find-most-similar c original))
+  (loop for c in original unless (most-similar c) do (find-most-similar c edited)))
+
+(defun find-most-similar (p others)
+  (let ((textified (textified p)))
+    (flet ((score (o) (similarity textified (textified o))))
+      (setf (most-similar p) (maximum others :key #'score)))))
 
 (defun pair-chunks (original edited)
   (setf (pair original)
