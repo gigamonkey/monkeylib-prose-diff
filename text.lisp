@@ -25,6 +25,9 @@
 (defun add-property (text new-prop)
   (intern-text (text text) (cons new-prop (properties text))))
 
+(defun has-property-p (prop text)
+  (member prop (properties text)))
+
 (defmethod print-object ((object propertied-text) stream)
   (when *print-readably*
     (error 'print-not-readable object))

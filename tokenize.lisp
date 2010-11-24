@@ -52,13 +52,9 @@
   (and (most-similar p) (eql (most-similar (most-similar p)) p)))
 
 (defun establish-pairs (original edited)
+  "Establish the pairing between two lists of chunks."
   (pair-identical original edited)
   (pair-symmetrical original edited)
-
-  ;; Walk through each set of chunks and when
-  (setf original (join-chunks original))
-  (setf edited (join-chunks edited))
-
   (repair-asymmetrical original t)
   (repair-asymmetrical edited nil))
 
@@ -116,6 +112,20 @@ identical chunk."
       (com.gigamonkeys.markup3.html::render-sexp
        (cons :body (diff-to-markup original edited)) out :stylesheet "diff.css"))))
 
+;; For experimenting. Probably a dead end.
+(defun diff-to-html/no-paragraphs (original edited output)
+  (with-output-to-file (out output)
+    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
+      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (com.gigamonkeys.markup3.html::render-sexp
+       (cons :body (diff-to-markup/no-paragraphs original edited)) out :stylesheet "diff.css"))))
+
+(defun diff-to-markup/no-paragraphs (original-file edited-file)
+  (let ((original (make-chunk (list (parse-file original-file))))
+        (edited (make-chunk (list (parse-file edited-file)))))
+    (cleaned-diff-output (diff-textified (textified original) (textified edited)))))
+
 (defun block-element-p (x)
   (member x 
           '(:body :colgroup :div :dl :fieldset :form :head :html :map :noscript
@@ -148,6 +158,69 @@ identical chunk."
            ((and (eql label :delete) (not (empty-chunk-p (edited pair))))
             `(((:div :class "moved-away") ,@diff)))
            (t diff)))))
+
+(defun foo-diff-to-markup (original-file edited-file)
+  (let ((original (paragraphs original-file))
+        (edited (paragraphs edited-file)))
+    (establish-pairs original edited)
+    (loop for (label . pair) across (diff-vectors (as-pairs original) (as-pairs edited))
+       nconc (remove nil (mapcar #'remove-empties (detextify-markup (diff-pair pair)))))))
+
+(defun show-pairing (label add)
+  (let* ((ta (textified add))
+         (tb (textified (most-similar add)))
+         (diff (diff-textified tb ta))
+         #+(or)(undiffed (undiffed (detextify-markup diff))))
+    (when (finer-grained-p diff ta)
+      (format t "~2&~a: ~s => ~s~&diff: ~s~&identical: ~a; symmetric: ~a; similarity: ~f; one-way: ~f)"
+              label
+              (markup add)
+              (markup (most-similar add))
+              (detextify-markup diff)
+              (identical-p add)
+              (symmetrical-p add)
+              (similarity ta tb)
+              (one-way-similarity ta tb)))))
+
+(defun finer-grained-p (new-diff orig-diff)
+  "Is the new-diff finer-grained than the original. The original diff
+  was a complete add or delete while the new diff is the result of
+  diffing the contents of the original diff with some paired change."
+  (< (length (remove-if-not #'part-of-diff-p new-diff)) (length orig-diff)))
+
+(defun part-of-diff-p (text)
+  (or (has-property-p :add text) (has-property-p :delete text)))
+
+    
+(defun pair-adds-and-deletes (original-file edited-file)
+  (let ((markup (foo-diff-to-markup original-file edited-file)))
+    (flet ((chunkify (things)
+             (mapcar (lambda (x) (make-chunk (rest x))) things)))
+      (let ((adds (chunkify (extract markup :add)))
+            (deletes (chunkify (extract markup :delete))))
+        (pair-identical adds deletes)
+        (pair-symmetrical (remove-if #'identical-p adds) (remove-if #'identical-p deletes))
+        (loop for x in deletes do (show-pairing "DELETE" x))
+        (loop for x in adds do (show-pairing "ADD" x))
+        ))))
+
+(defun extract (markup what)
+  "Find all the what elements in markup."
+  (cond
+    ((consp markup)
+     (if (eql (car markup) what)
+         (list markup)
+         (mapcan (lambda (x) (extract x what)) markup)))
+    (t nil)))
+
+(defun undiffed (markup)
+  (cond
+    ((consp markup) 
+     (if (or (eql (car markup) :add)
+             (eql (car markup) :delete))
+         nil
+         (mapcan #'undiffed markup)))
+    (t (list markup))))
 
 (defun as-pairs (chunks) (map 'vector #'pair chunks))
 
