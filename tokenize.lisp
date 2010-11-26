@@ -183,15 +183,12 @@ identical chunk."
               (one-way-similarity ta tb)))))
 
 (defun finer-grained-p (new-diff orig-diff)
-  "Is the new-diff finer-grained than the original. The original diff
-  was a complete add or delete while the new diff is the result of
-  diffing the contents of the original diff with some paired change."
+  "Is the new-diff finer-grained than the original?"
   (< (length (remove-if-not #'part-of-diff-p new-diff)) (length orig-diff)))
 
 (defun part-of-diff-p (text)
   (or (has-property-p :add text) (has-property-p :delete text)))
 
-    
 (defun pair-adds-and-deletes (original-file edited-file)
   (let ((markup (foo-diff-to-markup original-file edited-file)))
     (flet ((chunkify (things)
@@ -203,6 +200,33 @@ identical chunk."
         (loop for x in deletes do (show-pairing "DELETE" x))
         (loop for x in adds do (show-pairing "ADD" x))
         ))))
+
+(defun refine-diffs (original-file edited-file)
+  (let ((markup (foo-diff-to-markup original-file edited-file)))
+    (flet ((chunkify (things)
+             (mapcar (lambda (x) (make-chunk (rest x))) things)))
+      (let ((adds (chunkify (extract markup :add)))
+            (deletes (chunkify (extract markup :delete))))
+        (loop for add in adds do
+             (multiple-value-bind (delete refinement) (find-most-refining add deletes)
+               (format t "~2&~s vs ~s (~f)~&~s"
+                       (markup add)
+                       (markup delete)
+                       refinement
+                       (detextify-markup (diff-textified (dediff (textified delete)) (dediff (textified add)))))))))))
+
+(defun dediff (textified)
+  (map 'vector (lambda (x) (remove-properties x '(:add :delete))) textified))
+
+(defun refinement (delete add)
+  (let* ((refined-diff (diff-textified (dediff (textified delete)) (dediff (textified add))))
+         (diff-length (length (remove-if-not #'part-of-diff-p refined-diff)))
+         (original-add-length (length (textified add))))
+    (* original-add-length (/ (- original-add-length diff-length) original-add-length))))
+
+(defun find-most-refining (add deletes)
+  (flet ((score (delete) (refinement delete add)))
+    (maximum deletes :key #'score)))
 
 (defun extract (markup what)
   "Find all the what elements in markup."
@@ -230,6 +254,7 @@ identical chunk."
                   (mapcar #'remove-empties (detextify-markup diff)))))
 
 (defun remove-empties (tree)
+  "Remove empty sub-trees from tree."
   (labels ((helper (x)
              (cond
                ((and (consp x) (null (rest x))) nil)
@@ -238,13 +263,15 @@ identical chunk."
     (first (helper tree))))
 
 (defun rewrite-adds-and-deletes (tree)
-  "Rewrite the Markup trees so that :add and :delete tags "
+  "Rewrite the Markup tree so that :add and :delete tags are moved out
+as far as possible. E.g. given (:p (:add something)) we tranform it
+to: (:add (:p something))."
   (cond
     ((consp tree)
      (let ((add-or-delete (has-nested-add-or-delete-p tree)))
-       (when add-or-delete
-         (setf tree (promote-tag add-or-delete tree)))
-       (mapcar #'rewrite-adds-and-deletes tree)))
+       (mapcar
+        #'rewrite-adds-and-deletes
+        (if add-or-delete (promote-tag add-or-delete tree) tree))))
     (t tree)))
 
 (defun has-nested-add-or-delete-p (tree)
