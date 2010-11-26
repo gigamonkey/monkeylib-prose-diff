@@ -25,6 +25,9 @@
 (defun add-property (text new-prop)
   (intern-text (text text) (cons new-prop (properties text))))
 
+(defun remove-properties (text props)
+  (intern-text (text text) (set-difference (properties text) props)))
+
 (defun has-property-p (prop text)
   (member prop (properties text)))
 
