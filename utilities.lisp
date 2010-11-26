@@ -13,7 +13,7 @@
          (when (> score best-score)
            (setf best-score score)
            (setf best x))
-         finally (return best))))
+         finally (return (values best best-score)))))
 
 (defun take (list n)
   "Return a list of of the first n values of list and the left-over
