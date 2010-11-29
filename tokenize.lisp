@@ -113,12 +113,13 @@ identical chunk."
             `(((:div :class "moved-away") ,@diff)))
            (t diff)))))
 
-(defun foo-diff-to-markup (original-file edited-file)
+(defun diff-to-markup/no-moves (original-file edited-file)
   (let ((original (paragraphs original-file))
         (edited (paragraphs edited-file)))
     (establish-pairs original edited)
     (loop for (label . pair) across (diff-vectors (as-pairs original) (as-pairs edited))
-       nconc (remove nil (mapcar #'remove-empties (detextify-markup (diff-pair pair)))))))
+       for diff = (cleaned-diff-output (diff-pair pair))
+       nconc diff)))
 
 (defun show-pairing (label add)
   (let* ((ta (textified add))
@@ -144,7 +145,7 @@ identical chunk."
   (or (has-property-p :add text) (has-property-p :delete text)))
 
 (defun pair-adds-and-deletes (original-file edited-file)
-  (let ((markup (foo-diff-to-markup original-file edited-file)))
+  (let ((markup (diff-to-markup/no-moves original-file edited-file)))
     (flet ((chunkify (things)
              (mapcar (lambda (x) (make-chunk (rest x))) things)))
       (let ((adds (chunkify (extract markup :add)))
@@ -156,18 +157,19 @@ identical chunk."
         ))))
 
 (defun refine-diffs (original-file edited-file)
-  (let ((markup (foo-diff-to-markup original-file edited-file)))
+  (let ((markup (diff-to-markup/no-moves original-file edited-file)))
     (flet ((chunkify (things)
              (mapcar (lambda (x) (make-chunk (rest x))) things)))
       (let ((adds (chunkify (extract markup :add)))
             (deletes (chunkify (extract markup :delete))))
         (loop for add in adds do
              (multiple-value-bind (delete refinement) (find-most-refining add deletes)
-               (format t "~2&~s vs ~s (~f)~&~s"
-                       (markup add)
-                       (markup delete)
-                       refinement
-                       (detextify-markup (diff-textified (dediff (textified delete)) (dediff (textified add)))))))))))
+               (when (plusp refinement)
+                 (format t "~2&~s vs ~s (~f)~&~s"
+                         (markup add)
+                         (markup delete)
+                         refinement
+                         (cleaned-diff-output (diff-textified (dediff (textified delete)) (dediff (textified add))))))))))))
 
 (defun dediff (textified)
   (map 'vector (lambda (x) (remove-properties x '(:add :delete))) textified))
