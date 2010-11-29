@@ -1,0 +1,4 @@
+NOTE: this code is a work in progress. However the goal is to create a
+diff program that works better on text files containing prose than the
+traditional Unix line-based diff.
+
