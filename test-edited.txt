@@ -24,7 +24,7 @@ form in the original document.
 I like dogs a lot. Puppies are neat too. I also like cats. Kittens are
 fuzzy furballs.
 
-This is \b{quux} formatted text
+This is \b{quux} formatted text.
 
 This paragraph will be moved.
 
