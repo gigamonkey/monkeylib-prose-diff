@@ -5,15 +5,16 @@
 ;;; bits o fsome standard utility library.
 
 (defun maximum (list &key (key #'identity))
-  (destructuring-bind (first . rest) list
-    (loop with best-score = (funcall key first)
+  (when list
+    (destructuring-bind (first . rest) list
+      (loop with best-score = (funcall key first)
          with best = first
          for x in rest
          for score = (funcall key x) do
-         (when (> score best-score)
-           (setf best-score score)
-           (setf best x))
-         finally (return (values best best-score)))))
+           (when (> score best-score)
+             (setf best-score score)
+             (setf best x))
+         finally (return (values best best-score))))))
 
 (defun take (list n)
   "Return a list of of the first n values of list and the left-over
