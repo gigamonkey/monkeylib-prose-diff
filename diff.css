@@ -1,4 +1,7 @@
-body { margin: 1in; }
+body { margin: 1.5in; }
+
+#buttons { position: fixed; top: 6px; left: 6px; width: 1in; list-style-type: none; padding: 0; }
+#buttons li button { padding-left: 3px; width: 90%; background: #eee; }
 
 /* Logical styles */
 
@@ -21,3 +24,5 @@ body { margin: 1in; }
 .moved-to-display { background-color: #ffc; }
 
 .moved-from-display { background-color: #ccc; }
+
+.selected { font-weight: 900; background: #888 !important; }
