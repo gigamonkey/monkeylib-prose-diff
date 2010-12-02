@@ -28,7 +28,7 @@
 
 (defun paragraphs (file)
   "Split file into chunks, one per paragraph."
-  (loop for p in (rest (parse-file file))
+  (loop for p in (rest (parse-file file :parse-links-p nil))
        for i from 0
        for markup = (list p)
        collect (make-chunk markup)))

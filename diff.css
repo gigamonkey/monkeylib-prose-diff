@@ -1,9 +1,23 @@
 body { margin: 1in; }
 
-.add { color: blue; }
+/* Logical styles */
 
-.delete { color: red; text-decoration: line-through; }
+.add { }
 
-.moved-to { background-color: #ffc; }
+.delete { }
 
-.moved-from { background-color: #ccc; }
+.moved-to { }
+
+.moved-from { }
+
+/* Actual display styles */
+
+.hidden { display: none; }
+
+.delete-display {  color: red; text-decoration: line-through; }
+
+.add-display { color: blue; }
+
+.moved-to-display { background-color: #ffc; }
+
+.moved-from-display { background-color: #ccc; }
