@@ -29,7 +29,7 @@
       (push '(:moved-from . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
       (com.gigamonkeys.markup3.html::render-sexps-to-stream 
        `(:body
-         (:div :id "buttons"
+         ((:div :id "buttons")
           ((:button :id "show_original") "Original")
           ((:button :id "show_new") "New")
           ((:button :id "show_diff") "Diff"))
