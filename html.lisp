@@ -9,46 +9,16 @@
     (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
       (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
       (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (com.gigamonkeys.markup3.html::render-sexp
-       (cons :body (diff-to-markup original edited)) out :stylesheet "diff.css"))))
-
-(defun diff-to-html/no-moves (original edited output)
-  (with-output-to-file (out output)
-    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
-      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (com.gigamonkeys.markup3.html::render-sexp
-       (cons :body (diff-to-markup/no-moves original edited)) out :stylesheet "diff.css"))))
-
-(defun diff-to-html/moves (original edited output)
-  (with-output-to-file (out output)
-    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
-      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
       (push '(:moved-to . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
       (push '(:moved-from . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
       (com.gigamonkeys.markup3.html::render-sexps-to-stream 
        `(:body
-         ((:div :id "buttons")
-          ((:button :id "show_original") "Original")
-          ((:button :id "show_new") "New")
-          ((:button :id "show_diff") "Diff"))
-         ,@(clean-adds-and-deletes (mark-moves (diff-to-markup/no-moves original edited))))
+         ,@(clean-adds-and-deletes (mark-moves (diff-to-markup/no-moves original edited)))
+         ((:ul :id "buttons")
+          (:li ((:button :id "show_diff") "Diff"))
+          (:li ((:button :id "show_original") "Original"))
+          (:li ((:button :id "show_new") "New"))))
        out :stylesheets '("diff.css") :scripts '("jquery-1.4.4.js" "diff.js")))))
-
-;; For experimenting. Probably a dead end.
-(defun diff-to-html/no-paragraphs (original edited output)
-  (with-output-to-file (out output)
-    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
-      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (com.gigamonkeys.markup3.html::render-sexp
-       (cons :body (diff-to-markup/no-paragraphs original edited)) out :stylesheet "diff.css"))))
-
-(defun diff-to-markup/no-paragraphs (original-file edited-file)
-  (let ((original (make-chunk (list (parse-file original-file))))
-        (edited (make-chunk (list (parse-file edited-file)))))
-    (cleaned-diff-output (diff-textified (textified original) (textified edited)))))
 
 (defun block-element-p (x)
   (member x 
@@ -61,9 +31,10 @@
 
 (defun wrap-add-delete (sexp)
   (destructuring-bind (which &rest wrapped) sexp
-    (setf wrapped (mapcar #'com.gigamonkeys.markup3.html::remap-tags wrapped))
-
-    (let ((class (string-downcase which)))
+    (let ((class (string-downcase which))
+          (wrapped (mapcar #'com.gigamonkeys.markup3.html::remap-tags wrapped)))
+      ;; Recursive wrapping necessary since :moved-to and moved-from
+      ;; elements can contain :adds and :deletes
       (cond
         ((and (consp (first wrapped)) (block-element-p (car (first wrapped))))
          `((:div :class ,class) ,@wrapped))
