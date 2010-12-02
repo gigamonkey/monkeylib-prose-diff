@@ -4,12 +4,6 @@ body { margin: 1in; }
 
 .delete { color: red; text-decoration: line-through; }
 
-.moved { background-color: #ffc; }
+.moved-to { background-color: #ffc; }
 
-.moved-away { color: #ccc; }
-
-.moved-away .delete { color: #ccc; text-decoration: none; }
-
-.moved-away .add { color: #ccc; display: none; }
-
-
+.moved-from { background-color: #ccc; }

@@ -40,3 +40,13 @@ tail as a secondary value."
 (defun concatenate-vectors (vectors)
   (reduce (lambda (a b) (concatenate (class-of a) a b)) vectors))
 
+(defun map-tree (fn tree)
+  "Map fn down tree, replacing each element of the tree with the
+  return value of fn. When the return value is identical to the
+  original sub-tree it is recursively mapped."
+  (typecase tree
+    (cons (let ((new (funcall fn tree)))
+            (if (eql new tree)
+                (mapcar (lambda (x) (map-tree fn x)) tree)
+                new)))
+    (t tree)))

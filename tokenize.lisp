@@ -47,12 +47,17 @@
 (defun symmetrical-p (p)
   (and (most-similar p) (eql (most-similar (most-similar p)) p)))
 
-(defun establish-pairs (original edited)
+(defun establish-pairs (original edited &key unpair-short)
   "Establish the pairing between two lists of chunks."
   (pair-identical original edited)
+  ;; XXX -- should perhaps remove elements from original and edited
+  ;; that have most-similar set by pair-identical.
   (pair-symmetrical original edited)
-  (repair-asymmetrical original t)
-  (repair-asymmetrical edited nil))
+  (unpair-asymmetrical original t)
+  (unpair-asymmetrical edited nil)
+  (when unpair-short
+    (unpair-short original t)
+    (unpair-short edited nil)))
 
 (defun pair-identical (original edited)
   (let ((identical (make-hash-table :test #'equal)))
@@ -87,18 +92,21 @@ identical chunk."
         (setf (pair edited)
               (make-instance 'pair :original original :edited edited))))
 
-(defun repair-asymmetrical (chunks original-p)
-  (loop for chunk in chunks
-     when (not (symmetrical-p chunk)) do
-       (let ((empty (make-empty-chunk)))
-         (setf (most-similar chunk) empty)
-         (if original-p
-             (pair-chunks chunk empty)
-             (pair-chunks empty chunk)))))
+(defun unpair-asymmetrical (chunks original-p)
+  (loop for chunk in chunks when (not (symmetrical-p chunk)) do (unpair chunk original-p)))
+
+(defun unpair-short (chunks original-p)
+  (loop for chunk in chunks when (< (length (textified chunk)) 3)
+     do (unpair chunk original-p)))
+
+(defun unpair (chunk original-p)
+  (let ((empty (make-empty-chunk)))
+    (setf (most-similar chunk) empty)
+    (if original-p
+        (pair-chunks chunk empty)
+        (pair-chunks empty chunk))))
+  
                                   
-
-
-
 (defun diff-to-markup (original-file edited-file)
   (let ((original (paragraphs original-file))
         (edited (paragraphs edited-file)))
@@ -118,8 +126,52 @@ identical chunk."
         (edited (paragraphs edited-file)))
     (establish-pairs original edited)
     (loop for (label . pair) across (diff-vectors (as-pairs original) (as-pairs edited))
-       for diff = (cleaned-diff-output (diff-pair pair))
-       nconc diff)))
+       for diff = (clean-empties (diff-pair pair))
+       nconc
+         (cond
+           ((and (eql label :add) (not (empty-chunk-p (original pair))))
+            `((:add ,@diff)))
+           ((and (eql label :delete) (not (empty-chunk-p (edited pair))))
+            `((:delete ,@diff)))
+           (t diff)))))
+
+(defun mark-moves (markup)
+  "Take the output of diff-to-markup/no-moves and find the adds and
+deletes which are actually moves."
+  (let ((chunks (make-hash-table)))
+    (flet ((chunkify (thing)
+             (setf (gethash thing chunks) (make-chunk (rest thing)))))
+      (let ((adds (mapcar #'chunkify (extract markup :add)))
+            (deletes (mapcar #'chunkify (extract markup :delete))))
+        (establish-pairs deletes adds :unpair-short t)
+
+        ;; Walk the tree. For each :delete find the chunk. If chunk is
+        ;; unpaired then leave the :delete as is. Otherwise replace
+        ;; :delete with :moved-away containing the diff of the :delete
+        ;; and the :add (original and edited chunks of the pair.) For
+        ;; each :add similarly, if the chunk is unpaired, leave as is,
+        ;; otherwise replace with :moved-to containing diff of the
+        ;; :delete and :add. Also leave things as they are if the new
+        ;; diff is actually more complex than the originals.
+        (flet ((rewrite (x)
+                 (let ((label (car x)))
+                   (case label
+                     ((:add :delete)
+                      (let* ((chunk (gethash x chunks))
+                             (pair (pair chunk))
+                             (new-diff (diff-pair pair))
+                             (other (if (eql label :add) (original pair) (edited pair)))
+                             (new-diff-length (length new-diff))
+                             (old-diff-length (length (textified chunk)))
+                             (other-old-diff-length (length (textified other)))
+                             (move-label (if (eql label :add) :moved-to :moved-from))
+                             (more-complex (and (> new-diff-length old-diff-length) (> new-diff-length other-old-diff-length))))
+                        (cond
+                          ((and (symmetrical-p chunk) (not more-complex))
+                           `(,move-label ,@(detextify-markup new-diff)))
+                          (t `(,label ,@(rest x))))))
+                     (t x)))))
+          (map-tree #'rewrite markup))))))
 
 (defun show-pairing (label add)
   (let* ((ta (textified add))
@@ -205,9 +257,13 @@ identical chunk."
 (defun as-pairs (chunks) (map 'vector #'pair chunks))
 
 (defun cleaned-diff-output (diff)
-  (mapcar #'rewrite-adds-and-deletes
-          (remove nil
-                  (mapcar #'remove-empties (detextify-markup diff)))))
+  (clean-adds-and-deletes (clean-empties diff)))
+
+(defun clean-adds-and-deletes (diff)
+  (mapcar #'rewrite-adds-and-deletes diff))
+
+(defun clean-empties (diff)
+  (remove nil (mapcar #'remove-empties (detextify-markup diff))))
 
 (defun remove-empties (tree)
   "Remove empty sub-trees from tree."

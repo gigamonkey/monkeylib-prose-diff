@@ -12,6 +12,25 @@
       (com.gigamonkeys.markup3.html::render-sexp
        (cons :body (diff-to-markup original edited)) out :stylesheet "diff.css"))))
 
+(defun diff-to-html/no-moves (original edited output)
+  (with-output-to-file (out output)
+    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
+      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (com.gigamonkeys.markup3.html::render-sexp
+       (cons :body (diff-to-markup/no-moves original edited)) out :stylesheet "diff.css"))))
+
+(defun diff-to-html/moves (original edited output)
+  (with-output-to-file (out output)
+    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
+      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (push '(:moved-to . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (push '(:moved-from . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
+      (com.gigamonkeys.markup3.html::render-sexp
+       (cons :body (clean-adds-and-deletes (mark-moves (diff-to-markup/no-moves original edited))))
+       out :stylesheet "diff.css"))))
+
 ;; For experimenting. Probably a dead end.
 (defun diff-to-html/no-paragraphs (original edited output)
   (with-output-to-file (out output)
@@ -37,6 +56,8 @@
 
 (defun wrap-add-delete (sexp)
   (destructuring-bind (which &rest wrapped) sexp
+    (setf wrapped (mapcar #'com.gigamonkeys.markup3.html::remap-tags wrapped))
+
     (let ((class (string-downcase which)))
       (cond
         ((and (consp (first wrapped)) (block-element-p (car (first wrapped))))
