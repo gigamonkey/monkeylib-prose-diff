@@ -17,12 +17,14 @@ body { margin: 1.5in; }
 
 .hidden { display: none; }
 
-.delete-display {  color: red; text-decoration: line-through; }
+.delete.diff {  color: red; text-decoration: line-through; }
 
-.add-display { color: blue; }
+.add.diff { color: blue; }
 
-.moved-to-display { background-color: #ffc; }
+.moved-to.diff { background-color: #ffc; }
 
-.moved-from-display { background-color: #ccc; }
+.moved-from.diff { background-color: #ccc; }
+
+/* Button style */
 
 .selected { font-weight: 900; background: #888 !important; }
