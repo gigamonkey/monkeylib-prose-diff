@@ -46,12 +46,6 @@ Optionally frob the computed LCS before computing the diff."
                (:lcs thing)
                ((:add :delete) (add-property thing label)))))
 
-         (empty-delete? (x)
-           ;; Empty text elements that are being deleted will just
-           ;; mess up the detextification algorithm. Empty :adds, on
-           ;; the other hand, are still needed to separate elements.
-           (and (string= (text x) "") (eql (first (properties x)) :delete)))
-
          (collapse-spaces-in-lcs (lcs)
            ;; Since spaces are quite common in text, the LCS of any
            ;; two bits of text will include a lot of them. However,
@@ -69,7 +63,7 @@ Optionally frob the computed LCS before computing the diff."
                (remove-if #'collapsable? lcs)))))
     
     (let ((diff (diff-vectors a b #'collapse-spaces-in-lcs)))
-      (remove-if #'empty-delete? (map-into diff #'translate-textified diff)))))
+      (map-into diff #'translate-textified diff))))
 
 (defun split-positions (one-chunk parts)
   "Find the positions where one-chunk should be split to get pieces
