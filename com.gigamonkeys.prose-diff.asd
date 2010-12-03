@@ -16,4 +16,4 @@
                :com.gigamonkeys.pathnames
                :com.gigamonkeys.utilities
                :com.gigamonkeys.macro-utilities
-               :com.gigamonkeys.markup3))
+               :com.gigamonkeys.markup))

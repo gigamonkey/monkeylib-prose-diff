@@ -6,14 +6,14 @@
 
 (defun diff-to-html (original edited output)
   (with-output-to-file (out output)
-    (let ((com.gigamonkeys.markup3.html::*tag-mappings* com.gigamonkeys.markup3.html::*tag-mappings*))
-      (push '(:add . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (push '(:moved-to . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (push '(:moved-from . wrap-add-delete) com.gigamonkeys.markup3.html::*tag-mappings*)
-      (com.gigamonkeys.markup3.html::render-sexps-to-stream 
+    (let ((com.gigamonkeys.markup.html::*tag-mappings* com.gigamonkeys.markup.html::*tag-mappings*))
+      (push '(:add . wrap-add-delete) com.gigamonkeys.markup.html::*tag-mappings*)
+      (push '(:delete . wrap-add-delete) com.gigamonkeys.markup.html::*tag-mappings*)
+      (push '(:moved-to . wrap-add-delete) com.gigamonkeys.markup.html::*tag-mappings*)
+      (push '(:moved-from . wrap-add-delete) com.gigamonkeys.markup.html::*tag-mappings*)
+      (com.gigamonkeys.markup.html::render-sexps-to-stream 
        `(:body
-         ,@(clean-adds-and-deletes (mark-moves (diff-to-markup/no-moves original edited)))
+         ,@(diff-to-markup original edited)
          ((:ul :id "buttons")
           (:li ((:button :id "show_diff") "Diff"))
           (:li ((:button :id "show_original") "Original"))
@@ -32,7 +32,7 @@
 (defun wrap-add-delete (sexp)
   (destructuring-bind (which &rest wrapped) sexp
     (let ((class (string-downcase which))
-          (wrapped (mapcar #'com.gigamonkeys.markup3.html::remap-tags wrapped)))
+          (wrapped (mapcar #'com.gigamonkeys.markup.html::remap-tags wrapped)))
       ;; Recursive wrapping necessary since :moved-to and moved-from
       ;; elements can contain :adds and :deletes
       (cond

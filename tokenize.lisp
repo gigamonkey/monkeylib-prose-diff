@@ -109,6 +109,9 @@ identical chunk."
 (defun diff-pair (pair)
   (diff-textified (textified (original pair)) (textified (edited pair))))
 
+(defun diff-to-markup (original-file edited-file)
+  (clean-adds-and-deletes (mark-moves (diff-to-markup/no-moves original-file edited-file))))
+
 (defun diff-to-markup/no-moves (original-file edited-file)
   (let ((original (paragraphs original-file))
         (edited (paragraphs edited-file)))
