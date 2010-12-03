@@ -105,21 +105,9 @@ identical chunk."
     (if original-p
         (pair-chunks chunk empty)
         (pair-chunks empty chunk))))
-  
                                   
-(defun diff-to-markup (original-file edited-file)
-  (let ((original (paragraphs original-file))
-        (edited (paragraphs edited-file)))
-    (establish-pairs original edited)
-    (loop for (label . pair) across (diff-vectors (as-pairs original) (as-pairs edited))
-       for diff = (cleaned-diff-output (diff-pair pair))
-       nconc 
-         (cond
-           ((and (eql label :add) (not (empty-chunk-p (original pair))))
-            `(((:div :class "moved") ,@diff)))
-           ((and (eql label :delete) (not (empty-chunk-p (edited pair))))
-            `(((:div :class "moved-away") ,@diff)))
-           (t diff)))))
+(defun diff-pair (pair)
+  (diff-textified (textified (original pair)) (textified (edited pair))))
 
 (defun diff-to-markup/no-moves (original-file edited-file)
   (let ((original (paragraphs original-file))
@@ -207,21 +195,6 @@ deletes which are actually moves."
         (loop for x in deletes do (show-pairing "DELETE" x))
         (loop for x in adds do (show-pairing "ADD" x))
         ))))
-
-(defun refine-diffs (original-file edited-file)
-  (let ((markup (diff-to-markup/no-moves original-file edited-file)))
-    (flet ((chunkify (things)
-             (mapcar (lambda (x) (make-chunk (rest x))) things)))
-      (let ((adds (chunkify (extract markup :add)))
-            (deletes (chunkify (extract markup :delete))))
-        (loop for add in adds do
-             (multiple-value-bind (delete refinement) (find-most-refining add deletes)
-               (when (plusp refinement)
-                 (format t "~2&~s vs ~s (~f)~&~s"
-                         (markup add)
-                         (markup delete)
-                         refinement
-                         (cleaned-diff-output (diff-textified (dediff (textified delete)) (dediff (textified add))))))))))))
 
 (defun dediff (textified)
   (map 'vector (lambda (x) (remove-properties x '(:add :delete))) textified))

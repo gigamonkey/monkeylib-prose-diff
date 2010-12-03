@@ -100,7 +100,6 @@ text split into words, whitespace, and punctuation or just the words."
         (save-text)))
     (values (nreverse result) (1+ i))))
 
-
 (defun new-open-p (text-props open-props)
   (equal (last text-props (length open-props)) open-props))
 
@@ -111,11 +110,30 @@ text split into words, whitespace, and punctuation or just the words."
             "Remaining props ~s not equal to open props ~s" open open-props)
     unopen))
 
-;; used?
-(defun tag (tags rest)
-  (cond
-    ((null tags) rest)
-    ((null (cdr tags)) (cons (car tags) rest))
-    (t (list (car tags) (tag (cdr tags) rest)))))
-    
+(defun diff-textified (a b)
+  "Diff two vectors of propertied-text, returning a single vector
+containing the diff as propertied-text."
+  (flet ((translate-textified (x)
+           (destructuring-bind (label . thing) x
+             (ecase label
+               (:lcs thing)
+               ((:add :delete) (add-property thing label)))))
 
+         (collapse-spaces-in-lcs (lcs)
+           ;; Since spaces are quite common in text, the LCS of any
+           ;; two bits of text will include a lot of them. However,
+           ;; when there are no words between them in the LCS it is
+           ;; better to collapse them so that instead of diffing: 'a
+           ;; b' and 'd e' as ((:delete a) (:add d) " " (:delete b)
+           ;; (:add e))' we get ((:delete "a b") (:add "d e")) We
+           ;; also get rid of any leading spaces for a similar
+           ;; reason.
+           (let ((just-saw-space t))
+             (flet ((collapsable? (x)
+                      (if (string= (text x) " ")
+                          (prog1 just-saw-space (setf just-saw-space t))
+                          (setf just-saw-space nil))))
+               (remove-if #'collapsable? lcs)))))
+    
+    (let ((diff (diff-vectors a b #'collapse-spaces-in-lcs)))
+      (map-into diff #'translate-textified diff))))
