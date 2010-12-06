@@ -10,7 +10,9 @@
 	:com.gigamonkeys.pathnames
 	:com.gigamonkeys.utilities
 	:com.gigamonkeys.macro-utilities
-        :com.gigamonkeys.markup)
+        :com.gigamonkeys.markup
+        :com.gigamonkeys.markup.html)
+  (:import-from :alexandria :compose)
   (:export
    :show-cuts))
 
