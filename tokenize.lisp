@@ -1,5 +1,7 @@
 (in-package :com.gigamonkeys.prose-diff)
 
+(defparameter *short-length* 5)
+
 (defclass chunk ()
   ((markup :initarg :markup :accessor markup)
    (textified :reader textified)
@@ -26,12 +28,9 @@
 (defun combine-chunks (&rest chunks)
   (make-instance 'chunk :markup (apply #'append (mapcar #'markup chunks))))
 
-(defun paragraphs (file)
+(defun paragraphs (parsed)
   "Split file into chunks, one per paragraph."
-  (loop for p in (rest (parse-file file :parse-links-p nil))
-       for i from 0
-       for markup = (list p)
-       collect (make-chunk markup)))
+  (loop for p in (rest parsed) collect (make-chunk (list p))))
 
 (defmethod print-object ((o chunk) stream)
   (print-unreadable-object (o stream :type t)
@@ -96,7 +95,8 @@ identical chunk."
   (loop for chunk in chunks when (not (symmetrical-p chunk)) do (unpair chunk original-p)))
 
 (defun unpair-short (chunks original-p)
-  (loop for chunk in chunks when (< (length (textified chunk)) 3)
+  "Unpair chunks whose pair "
+  (loop for chunk in chunks when (< (length (textified chunk)) *short-length*)
      do (unpair chunk original-p)))
 
 (defun unpair (chunk original-p)
@@ -109,22 +109,22 @@ identical chunk."
 (defun diff-pair (pair)
   (diff-textified (textified (original pair)) (textified (edited pair))))
 
-(defun diff-to-markup (original-file edited-file)
-  (clean-adds-and-deletes (mark-moves (diff-to-markup/no-moves original-file edited-file))))
+(defun diff-to-markup (original edited)
+  (clean-adds-and-deletes (mark-moves (diff-to-markup/no-moves original edited))))
 
-(defun diff-to-markup/no-moves (original-file edited-file)
-  (let ((original (paragraphs original-file))
-        (edited (paragraphs edited-file)))
+(defun diff-to-markup/no-moves (original-parsed edited-parsed)
+  (let ((original (paragraphs original-parsed))
+        (edited (paragraphs edited-parsed)))
     (establish-pairs original edited)
     (loop for (label . pair) across (diff-vectors (as-pairs original) (as-pairs edited))
        for diff = (clean-empties (diff-pair pair))
        nconc
-         (cond
-           ((and (eql label :add) (not (empty-chunk-p (original pair))))
-            `((:add ,@diff)))
-           ((and (eql label :delete) (not (empty-chunk-p (edited pair))))
-            `((:delete ,@diff)))
-           (t diff)))))
+       (cond
+         ((and (eql label :add) (not (empty-chunk-p (original pair))))
+          `((:add ,@diff)))
+         ((and (eql label :delete) (not (empty-chunk-p (edited pair))))
+          `((:delete ,@diff)))
+         (t diff)))))
 
 (defun mark-moves (markup)
   "Take the output of diff-to-markup/no-moves and find the adds and
