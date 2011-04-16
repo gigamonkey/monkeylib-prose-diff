@@ -1,3 +1,4 @@
 publish.sh
 *.html
 test-files/
+tmp/
