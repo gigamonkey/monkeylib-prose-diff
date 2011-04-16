@@ -60,14 +60,18 @@
 
 (defun pair-identical (original edited)
   (let ((identical (make-hash-table :test #'equal)))
-    (loop for o in original do (setf (gethash (markup o) identical) o))
+    (loop for o in original do (push o (gethash (markup o) identical nil)))
+    ;; Reverse the lists so we can pop them off in the right order below.
+    (loop for k being the hash-keys of identical do
+         (setf (gethash k identical) (nreverse (gethash k identical))))
     (loop for e in edited 
-       for o = (gethash (markup e) identical)
+       for o = (pop (gethash (markup e) identical nil))
        do 
          (when o
            (setf (most-similar e) o)
-           (setf (most-similar o) e)))))
-
+           (setf (most-similar o) e)
+           (pair-chunks o e)))))
+  
 (defun pair-symmetrical (original edited)
   (set-most-similar original edited)
   (loop for chunk in original
@@ -81,10 +85,10 @@ identical chunk."
   (loop for c in edited unless (most-similar c) do (find-most-similar c original))
   (loop for c in original unless (most-similar c) do (find-most-similar c edited)))
 
-(defun find-most-similar (p others)
-  (let ((textified (textified p)))
-    (flet ((score (o) (similarity textified (textified o))))
-      (setf (most-similar p) (maximum others :key #'score)))))
+(defun find-most-similar (chunk others)
+  (let ((textified (textified chunk)))
+    (flet ((score (other) (similarity textified (textified other))))
+      (setf (most-similar chunk) (maximum others :key #'score)))))
 
 (defun pair-chunks (original edited)
   (setf (pair original)
@@ -95,7 +99,7 @@ identical chunk."
   (loop for chunk in chunks when (not (symmetrical-p chunk)) do (unpair chunk original-p)))
 
 (defun unpair-short (chunks original-p)
-  "Unpair chunks whose pair "
+  "Unpair very short chunks."
   (loop for chunk in chunks when (< (length (textified chunk)) *short-length*)
      do (unpair chunk original-p)))
 
