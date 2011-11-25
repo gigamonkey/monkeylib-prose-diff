@@ -13,14 +13,13 @@
 
 (defun intern-text (text &optional properties)
   (let ((key (cons text properties)))
-    (let ((existing (gethash key *interned-text*)))
-      (or
-       existing
-       (setf
-        (gethash key *interned-text*)
-        (make-instance 'propertied-text
-          :text text 
-          :properties properties))))))
+    (or
+     (gethash key *interned-text*)
+     (setf
+      (gethash key *interned-text*)
+      (make-instance 'propertied-text
+        :text text 
+        :properties properties)))))
 
 (defun add-property (text new-prop)
   (intern-text (text text) (cons new-prop (properties text))))
@@ -92,7 +91,7 @@ text split into words, whitespace, and punctuation or just the words."
                          (tag (first (last unopen)))
                          (now-open (cons tag open-props)))
                     (multiple-value-bind (thing idx) (%detextify-markup v i end now-open)
-                      (push (cons tag thing) result)
+                      (when thing (push (cons tag thing) result))
                       (setf i idx))))
                  (t (decf i)
                     (save-text)

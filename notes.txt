@@ -2,49 +2,96 @@
 
 * Prose diff algorithm:
 
-Hash (or intern) the paragraphs of the two documents and compute the
-diff using LCS of the sequence of hashes. This will find a backbone of
-unchanged paragraphs in their original order as well as the places
-where paragraphs were "deleted" and "added". However there are a few
-more possibilities.
+** Paragraph level diff
 
-  # A paragraph may actually have been cut. This will show up as a
-    deletion with none of the new paragraphs being at all similar to
-    the deleted paragraph. (Cut)
+Compute the paragraph-level LCS of the document. (I.e. consider the
+paragraphs as atomic elements.) This will find a backbone of unchanged
+paragraphs in their original order as well as the places where
+paragraphs were "deleted" and "added". However there are a number of
+things that could actually have happened at the paragraph level which
+would show up in different ways:
 
-  # A paragraph may actually have been added. This will show up as an
-    addition with the new paragraph not similar to any of the deleted
-    paragraphs. (Addition)
+  # Edited. This will show up as a deletion and addition at
+    the same place with a high similarity between the two.
 
-  # A paragraph may have been moved which will show up as a deletion
-    in one place and an addition somewhere else of the same hash.
-    (Moved)
+  # Split. One deletion and multiple additions at the same
+    place with a high similarity between the deletion and the
+    concatenation of the additions.
 
-  # A paragraph may have been edited in place which will show up as a
-    deletion and addition in the same position with a lot of
-    similarity between the deleted and added paragraphs. (Edited)
+  # Joined. Multiple deletions and one addition at the same
+    place with a high similarity between the concatenation of the
+    deletions and the addition.
 
-  # A paragraph may have been moved and edited which will show up as a
-    deletion at the original position and an addition somewhere else
-    with a lot of similarity between the deleted and added paragraphs.
-    (Moved and edited)
+  # Moved (and possibly edited). A deletion with no addition
+    and elsewhere an addition with no deletion, with high similarity
+    between the deletion and addition.
 
-  # A paragraph may have been split, perhaps with edits to both the
-    new paragraphs. This will show up as a deletion and an addition of
-    two (or more) paragraphs at the same position with each of the new
-    paragraphs having a LCS with the old paragraph that is almost the
-    full length of the new paragraph.
+  # Deleted. A deletion with no similar addition elsewhere.
 
-  # N paragraphs may have been joined which will look like N deletions
-    and one addition where each of the deleted paragraphs will have an
-    LCS with the new paragraph that is almost the full length of the
-    deleted paragraph.
+  # Added. An addition with no similar deletion elsewhere.
 
-  # A chunk of a paragraph may have been removed and added into
-    another paragraph. This will look like edits to both paragraphs
-    and the LCS of the deleted bits of the first paragraph with the
-    added bits of the second paragraph will be almost the whole
-    length. (Sentences moved)
+  # Sub-chunk moved. This will look like two edited paragraphs (as
+    described above) except that after refining the diff at each
+    edited location, we’ll get one deletion and one addition with high
+    similarity to each other.
+
+More complex situations include a paragraph split preceeded or
+followed by other additions (or moves from elsewhere). Then there
+would be a deletion and several additions in one place but only some
+of the additions came from the split. Want to find the set of
+consecutive additions that, when combined, yield the highest
+similarity to the deleted paragraph. The remaining additions remain to
+be accounted for as either actual additions or moves from elsewhere.
+Similarly, a join in the neighborhood of other deletions should be
+analyzed to find the set of consecutive deletions with the highest
+similarity to the addition and the remaining deletions left to be
+accounted for in some other way.
+
+** Foo
+
+  # Compute the paragraph-level diff. (I.e. a vector of :lcs, :delete,
+    and :add elements)
+
+  # For each diff location (a place where there are deletes and adds
+    between elements of the LCS), refine it by diffing the
+    concatenation of the deletes against the concatenation of the adds
+    at the word or character level. If it is a simple edit (one
+    delete; one add) this will detect it straight away. Similarly, a
+    simple split or join will get diffed down to the right thing. A
+    plain deletion or addition will have nothing to diff against so
+    will be left alone. And more complex cases, such as editing a
+    paragraph (a delete and an add) combined with adding or deleting
+    neighboring paragraphs should get turned into more or less the
+    right thing, namely a big chunk of, say, :add for an added
+    paragraph followed by a set of :lcs, :delete, :add, bits showing
+    the changes in the edited paragraph. However, there’s a danger
+    that some of the LCS will come from the added paragraph before the
+    edited one.
+
+** Refinement
+
+Given 
+
+
+
+
+
+
+
+see if there is a high-similarity way
+    to refine deletes and adds. For instance, if it’s actually a
+    simple edited paragraph, i.e. there’s one delete and one add and
+    their contents are highly similar, then replace the :delete and
+    :add elements with the diff of their contents, so a bunch of new,
+    smaller :lcs, :delete, and :add elements.
+
+
+
+
+
+
+
+
      
 To determine what has happened:
 

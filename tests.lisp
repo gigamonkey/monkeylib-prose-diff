@@ -1,6 +1,5 @@
 (in-package :com.gigamonkeys.prose-diff)
 
-
 (defun remove-tag-test ()
   (and 
    (equalp

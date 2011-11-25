@@ -64,14 +64,14 @@
     ;; Reverse the lists so we can pop them off in the right order below.
     (loop for k being the hash-keys of identical do
          (setf (gethash k identical) (nreverse (gethash k identical))))
-    (loop for e in edited 
+    (loop for e in edited
        for o = (pop (gethash (markup e) identical nil))
-       do 
+       do
          (when o
            (setf (most-similar e) o)
            (setf (most-similar o) e)
            (pair-chunks o e)))))
-  
+
 (defun pair-symmetrical (original edited)
   (set-most-similar original edited)
   (loop for chunk in original
@@ -109,7 +109,7 @@ identical chunk."
     (if original-p
         (pair-chunks chunk empty)
         (pair-chunks empty chunk))))
-                                  
+
 (defun diff-pair (pair)
   (diff-textified (textified (original pair)) (textified (edited pair))))
 
@@ -227,7 +227,7 @@ deletes which are actually moves."
 
 (defun undiffed (markup)
   (cond
-    ((consp markup) 
+    ((consp markup)
      (if (or (eql (car markup) :add)
              (eql (car markup) :delete))
          nil
@@ -254,7 +254,7 @@ deletes which are actually moves."
                (t (list x)))))
     (first (helper tree))))
 
-(defun rewrite-adds-and-deletes (tree)
+#+(or)(defun rewrite-adds-and-deletes (tree)
   "Rewrite the Markup tree so that :add and :delete tags are moved out
 as far as possible. E.g. given (:p (:add something)) we tranform it
 to: (:add (:p something))."
@@ -266,20 +266,54 @@ to: (:add (:p something))."
         (if add-or-delete (promote-tag add-or-delete tree) tree))))
     (t tree)))
 
-(defun has-nested-add-or-delete-p (tree)
+#+(or)(defun has-nested-add-or-delete-p (tree)
   "Tree has a nested :add or :delete tag and it's not the only tag.
 Returns which one it is since there should only be one or the other."
   (let ((tags (nested-tags tree)))
     (and (not (null (cdr tags)))
          (or (find :add tags) (find :delete tags)))))
 
+(defun rewrite-adds-and-deletes (tree)
+  "Rewrite the Markup tree so that :add and :delete tags are moved out
+as far as possible. E.g. given (:p (:add something)) we tranform it
+to: (:add (:p something)). This should also handle (:p (:add
+something) (:add something else))."
+  (cond
+    ((consp tree)
+     (cond
+       ((member (car tree) '(:add :delete)) tree)
+       (t
+        (let ((add-or-delete (all-text-add-or-delete-p tree)))
+          (cond
+            (add-or-delete
+             `(,add-or-delete ,(strip-adds-and-deletes tree)))
+            (t
+             (mapcar #'rewrite-adds-and-deletes tree)))))))
+    (t tree)))
+
+(defun all-text-add-or-delete-p (tree)
+  (flet ((extract (x) (intersection '(:add :delete) (properties x))))
+
+    (let* ((just-text (remove-if (lambda (x) (string= (text x) "")) (textify-markup (list tree))))
+           (adds-deletes (map 'list #'extract just-text)))
+      (cond
+        ((every (lambda (x) (equal x '(:add))) adds-deletes) :add)
+        ((every (lambda (x) (equal x '(:delete))) adds-deletes) :delete)
+        (t nil)))))
+
+(defun strip-adds-and-deletes (tree)
+  (cond
+    ((atom tree) tree)
+    ((member (car tree) '(:add :delete)) (second tree))
+    (t (mapcar #'strip-adds-and-deletes tree))))
+
 (defun promote-tag (tag tree)
   (list tag (remove-tag tag tree)))
 
 (defun remove-tag (tag tree)
-  (cond 
+  (cond
     ((consp tree)
-     (cond 
+     (cond
        ((consp (second tree))
         (destructuring-bind (t1 (t2 . rest)) tree
           (cond

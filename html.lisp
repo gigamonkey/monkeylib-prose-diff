@@ -4,25 +4,36 @@
 ;;; HTML generation -- given two Markup files generate an HTML file of the diff.
 ;;;
 
-(defparameter *retagger* 
-  (make-retagger 
+(defparameter *retagger*
+  (make-retagger
    (mapcar (lambda (x) (cons x 'wrap-add-delete)) '(:add :delete :moved-to :moved-from))))
 
-(defun diff-to-html (original-file edited-file output &key (css-dir "") (js-dir ""))
-  (let ((original (remove-comments (parse-file original-file :parse-links-p nil)))
-        (edited (remove-comments (parse-file edited-file :parse-links-p nil))))
+(defun diff-to-html (original-file edited-file output &key (css-dir "") (js-dir "") parse-links-p)
+  "Diff two files of Markup and write the diff as HTML to the file output."
+  (let ((original (remove-comments (parse-file original-file :parse-links-p parse-links-p)))
+        (edited (remove-comments (parse-file edited-file :parse-links-p parse-links-p))))
     (with-output-to-file (out output)
-      (render-sexps-to-stream
-       `(:body
-         ,@(diff-to-markup original edited)
-         ((:ul :id "buttons")
-          (:li ((:button :id "show_diff") "Diff"))
-          (:li ((:button :id "show_original") "Original"))
-          (:li ((:button :id "show_new") "New"))))
-       out
-       :stylesheets (loop for x in '("diff.css") collect (format nil "~a~a" css-dir x))
-       :scripts (loop for x in '("jquery-1.4.4.js" "diff.js") collect (format nil "~a~a" js-dir x))
-       :rewriter (compose  (lambda (x) (footnotes :note x)) *retagger*)))))
+      (%diff-to-html original edited out css-dir js-dir))))
+
+(defun diff-to-html/text (original-text edited-text &key (css-dir "") (js-dir "") parse-links-p)
+  "Diff two strings of Markup text and return a string of the diff as HTML."
+  (let ((original (remove-comments (parse-text original-text :parse-links-p parse-links-p)))
+        (edited (remove-comments (parse-text edited-text :parse-links-p parse-links-p))))
+    (with-output-to-string (out)
+      (%diff-to-html original edited out css-dir js-dir))))
+
+(defun %diff-to-html (original edited out css-dir js-dir)
+  (render-sexps-to-stream
+   `(:body
+     ,@(diff-to-markup original edited)
+     ((:ul :id "buttons")
+      (:li ((:button :id "show_diff") "Diff"))
+      (:li ((:button :id "show_original") "Original"))
+      (:li ((:button :id "show_new") "New"))))
+   out
+   :stylesheets (loop for x in '("diff.css") collect (format nil "~a~a" css-dir x))
+   :scripts (loop for x in '("jquery-1.4.4.js" "diff.js") collect (format nil "~a~a" js-dir x))
+   :rewriter (compose  (lambda (x) (footnotes :note x)) *retagger*)))
 
 (defun extract-comments (sexp)
   (let ((num 0)
@@ -66,8 +77,8 @@
   (destructuring-bind (tag &rest comments) sexp
     (assert (eql tag :comments))
     `(:progn ,@(loop for comment in comments
-                  for num from 1 
-                  collect 
+                  for num from 1
+                  collect
                     (destructuring-bind (tag &rest body) comment
                       (assert (eql tag :comment))
                       `((:div :id (:format "~(~a_~d~)" ,tag ,num) :class "comment") ,@body))))))
@@ -84,7 +95,7 @@
         (t `((:span :class ,class) ,@wrapped))))))
 
 (defun block-element-p (x)
-  (member x 
+  (member x
           '(:body :colgroup :div :dl :fieldset :form :head :html :map :noscript
             :object :ol :optgroup :pre :script :select :style :table :tbody
             :tfoot :thead :tr :ul

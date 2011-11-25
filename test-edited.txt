@@ -1,5 +1,14 @@
 -*- mode: markup; -*-
 
+* Test header
+
+This is a paragraph.
+
+Blah blah blah.
+
+This is another paragraph. And this is something really funny.
+-*- mode: markup; -*-
+
 * Prose diff test document
 
 Moving up is what this paragraph will do.
