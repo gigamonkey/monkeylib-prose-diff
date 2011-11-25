@@ -1,5 +1,21 @@
 (in-package :com.gigamonkeys.prose-diff)
 
+;;;
+;;; General purpose Least Common Subsequence implementation.
+;;;
+
+;;; Optimizations to do:
+;;;
+;;; - Trim common prefix and suffix before calling %lcs-table.
+;;; 
+;;; - Don't compute whole MxN table; just need current and previous
+;;;   rows. (Though have to do some tricks to get back to actual LCS.)
+;;;
+;;; May be possible to implement a similarity-less-than function that
+;;; given a and b and a previous similarity score can give you the
+;;; similarity of a and b except bailing as soon as it can determine
+;;; that they can't be more similar than the previous score.
+
 (defun lcs (a b)
   "Compute the longest common subsequence of vectors `a' and `b'"
   (map 'vector (lambda (i) (aref a i)) (lcs-positions a b)))
@@ -36,6 +52,31 @@
              ((= current (aref table j (1- i))) (decf i))
              (t (error "Assertion gone haywire: ~s ~s" j i)))))
     (values a-indices b-indices))))
+
+
+(defun new-lcs-positions (a b)
+  "Find the indices in a and b of the elements of the LCS."
+  (multiple-value-bind (table i j) (%lcs-table a b)
+    (loop 
+       with len       = (aref table j i)
+       with a-indices = (make-array len)
+       with b-indices = (make-array len)
+       with idx       = (1- len)
+         
+       while (and (> i 0) (> j 0))
+        
+       if (eql (aref a (1- i)) (aref b (1- j))) do
+         (decf j)
+         (decf i)
+         (setf (aref a-indices idx) i)
+         (setf (aref b-indices idx) j)
+         (decf idx)
+
+       else if (> (aref table j (1- i)) (aref table (1- j) i)) do (decf j)
+
+       else do (decf i)
+
+       finally (return (values a-indices b-indices)))))
 
 (defun %lcs-table (a b)
   "Compute the MxN table from which we can extract the LCS, and a
