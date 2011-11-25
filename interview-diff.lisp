@@ -79,36 +79,35 @@
 ;;; longer ones. But may be more expensive. Need to figure out whether
 ;;; it's worth it.
 
-(defun find-original-text (original-text edited-text)
-  "Given `original-text' and `edited-text' return two word vectors
-  representing the given texts with strings of words occuring in both
-  texts replaced by nil. Thus the words that remain in original are
-  the ones not used in the edited version and the words that remain in
-  edited are the ones added during editing. Note that this is quite
-  different from finding the least common subsequence of the two word
-  vectors because the strings can occur in different orders in the two
-  vectors. For instance if the original was: 'a b c e f g h' and the
-  edited was 'x y e f c a b', the result would be (with a
-  *minimum-match* of 1) an original with only the g and h left and an
-  edited with only the x and y since the 'a b' will match at the end,
-  the 'c' will match by itself, and the 'e f' near the beginning"
+
+(defun interview-diff (original edited)
+  "Given word vectors `original' and `edited' return them with strings
+  of words occuring in both texts replaced by nil. Thus the words that
+  remain in original are the ones not used in the edited version and
+  the words that remain in edited are the ones added during editing.
+  Note that this is quite different from finding the least common
+  subsequence of the two word vectors because the strings can occur in
+  different orders in the two vectors. For instance if the original
+  was: 'a b c e f g h' and the edited was 'x y e f c a b', the result
+  would be (with a *minimum-match* of 1) an original with only the g
+  and h left and an edited with only the x and y since the 'a b' will
+  match at the end, the 'c' will match by itself, and the 'e f' near
+  the beginning"
   (loop
-     with original        = (words original-text)
-     with edited          = (words edited-text)
      with positions-table = (positions-table original)
      with edited-idx      = 0
 
-     for word = (aref edited edited-idx)
+     for word      = (aref edited edited-idx)
      for positions = (gethash word positions-table)
 
      do
        (loop
 	  with longest-match = 0
 	  with longest-match-starts = ()
-
+            
 	  for original-idx in positions
 	  for match = (match-length original edited original-idx edited-idx longest-match)
-
+            
 	  do (when (>= match longest-match)
 	       (when (> match longest-match)
 		 (setf longest-match-starts ())
@@ -165,6 +164,83 @@
 	    (setf text-idx end))
 	  (setf word-idx (position nil words :start (1+ word-idx) :key (if word #'identity #'not))))
      finally (funcall (if (aref words (1- (length words))) in-fn out-fn) text-idx nil)))
+
+(defun find-original-text (original-text edited-text)
+  (interview-diff (words original-text) (words edited-text)))
+
+(defun textified-to-words (textified)
+  (loop for x across textified
+     for i from 0
+     for text = (text x)
+     when (cl-ppcre:scan "\\w+" text) 
+     collect (intern (string-upcase text) :keyword) into words and
+     collect i into positions
+     finally (return (values (coerce words 'vector) (coerce positions 'vector)))))
+
+;;; Plan
+;;;
+;;; 1. Textify markup into vector of propertied-text objects.
+;;;
+;;; 2. Map propertied-text objects into words vector. (Skipping some
+;;; of the text elements)
+;;;
+;;; 3. Map propertied-text words into positions in the
+;;; propertied-text vector.
+;;;
+;;; 4. Do interview-diff on words vector.
+;;;
+;;; 5. Use map-in-and-out to map back from words/word-starts to
+;;; propertied, text, applying :kept or :tossed properties the
+;;; propertied-text words between start and end.
+;;;
+;;; 6. Retextify propertied-text.
+;;;
+;;; 7. Generate HTML.
+
+(defun interview-diff/markup (original-file edited-file)
+  "Given two markup files, convert to propertied text and feed into
+  interview-diff/textified which will return the frobbed word
+  vectors."
+  (let ((o-text (textify-markup (rest (parse-file original-file :parse-links-p nil))))
+        (e-text (textify-markup (rest (parse-file edited-file :parse-links-p nil)))))
+    (interview-diff/textified o-text e-text)))
+
+
+(defun show-original (original-file edited-file output)
+  (multiple-value-bind (o-text e-text o-words e-words o-positions e-positions)
+      (interview-diff/markup original-file edited-file)
+    (declare (ignore e-text e-words e-positions))
+    (map-in-and-out 
+     o-words
+     o-positions
+     ;; Words only original.
+     (lambda (start end)
+       (loop for i from start below (or end (length o-text)) do
+            (setf (aref o-text i) (add-property (aref o-text i) :unused))))
+     ;; Words in both
+     (lambda (start end)
+       (declare (ignore start end))
+       #+(or)(loop for i from start below (or end (length o-text)) do
+            (setf (aref o-text i) (add-property (aref o-text i) :used)))))
+    (with-output-to-file (out output)
+      (render-sexps-to-stream
+       (cons :body (detextify-markup o-text))
+       out
+       :stylesheets '("interview-diff.css")
+       :rewriter (make-retagger '((:unused . (:span :class "unused"))
+                                  (:n . (:span :class "name"))))))))
+      
+
+(defun interview-diff/textified (o-text e-text)
+  (multiple-value-bind (o-words o-positions) (textified-to-words o-text)
+    (multiple-value-bind (e-words e-positions) (textified-to-words e-text)
+      (setf (values o-words e-words) (interview-diff o-words e-words))
+      (values o-text e-text o-words e-words o-positions e-positions))))
+
+
+  
+
+
 
 (defun show-cuts (&key master edited output)
   (with-open-file (out output :direction :output :if-exists :supersede)
@@ -298,4 +374,6 @@
 	       (loop for (start end) on (cons 0 positions )
 		  while end
 		  do (format s "~a" (subseq text start end)))))))
+
+
 
