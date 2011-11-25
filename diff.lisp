@@ -1,13 +1,15 @@
 (in-package :com.gigamonkeys.prose-diff)
 
 ;;;
-;;; Generic functions for diffing vectors of objects.
+;;; General purpose functions for diffing vectors of objects.
 ;;;
 
 (defun diff-vectors (old new &optional (lcs-frobber #'identity))
   "Diff two vectors returning a vector with the elements of old and
 new wrapped in conses whose CAR is either :LCS, :DELETE, or :ADD.
-Optionally frob the computed LCS before computing the diff."
+Optionally frob the computed LCS before computing the diff. (That
+feature is presently used when diffing text to remove spaces from the
+LCS since they are so common.)"
   (loop with output = (make-array (length new) :adjustable t :fill-pointer 0)
      with old-i = 0
      with old-length = (length old)
@@ -26,7 +28,7 @@ Optionally frob the computed LCS before computing the diff."
 
 (defun emit-diffs (next-lcs v i max-i marker output)
   (cond
-    ((< i max-i) 
+    ((< i max-i)
      (let ((idx (or (position next-lcs v :start i) max-i)))
        (cond
          ((> idx i)
@@ -35,7 +37,3 @@ Optionally frob the computed LCS before computing the diff."
          (t
           (1+ i)))))
     (t i)))
-
-
-
-
