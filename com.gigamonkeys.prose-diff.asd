@@ -1,9 +1,10 @@
 ;;
-;; Copyright (c) 2010, Peter Seibel. All rights reserved.
+;; Copyright (c) 2010, 2011 Peter Seibel. All rights reserved.
 ;;
 
 (defsystem com.gigamonkeys.prose-diff
   :name "com.gigamonkeys.prose-diff"
+  :description "Work in progress for diffing prose in a semantically useful way."
   :components
   ((:file "packages")
    (:file "lcs" :depends-on ("packages"))
