@@ -2,3 +2,13 @@ NOTE: this code is a work in progress. However the goal is to create a
 diff program that works better on text files containing prose than the
 traditional Unix line-based diff.
 
+Update 2014-02-14: I used this code when I was running the ill fated Code
+Quarterly. It was incredibly useful to be able to take a text file from an
+author, edit it to my heart's content, and then generate a diff that was
+even better than what Word track changes could show since it shows sections
+that are moved and also edited in a sane way.
+
+The algorithm is not speedy as it does a N^2 comparison of all the paragraphs
+that differ at all between the two versions so it's not great for realtime
+but for generating a diff offline and then putting on the web for an author
+to look at, it was quite nice.
